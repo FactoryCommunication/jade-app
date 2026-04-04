@@ -132,7 +132,7 @@ export default function Persone() {
 
       {selected && (
         <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>{selected.nome} {selected.cognome}</DialogTitle>
             </DialogHeader>
@@ -188,7 +188,7 @@ export default function Persone() {
       </AlertDialog>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Modifica Contatto" : "Nuovo Contatto"}</DialogTitle>
           </DialogHeader>

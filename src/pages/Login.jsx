@@ -1,29 +1,29 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function Login() {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState("login");
-  const [resetSent, setResetSent] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
     setLoading(true);
     setError("");
-const { error } = await login(email, password);
-if (error) {
-  setError("Email o password non corretti. Riprova.");
-} else {
-  window.location.replace("/");
-}
-    setLoading(false);
+    const { error } = await login(email, password);
+    if (error) {
+      setError("Email o password non corretti. Riprova.");
+      setLoading(false);
+    } else {
+      navigate("/");
+    }
   }
 
   return (
@@ -34,7 +34,6 @@ if (error) {
           <h1 className="text-2xl font-bold text-foreground">jabe</h1>
           <p className="text-muted-foreground text-sm mt-1">Accedi al tuo account</p>
         </div>
-
         <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
@@ -60,13 +59,11 @@ if (error) {
                 required
               />
             </div>
-
             {error && (
               <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
-
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Accesso in corso..." : "Accedi"}
             </Button>

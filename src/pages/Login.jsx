@@ -17,10 +17,12 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await login(email, password);
-    if (error) {
-      setError("Email o password non corretti. Riprova.");
-    }
+const { error } = await login(email, password);
+if (error) {
+  setError("Email o password non corretti. Riprova.");
+} else {
+  window.location.href = "/";
+}
     setLoading(false);
   }
 

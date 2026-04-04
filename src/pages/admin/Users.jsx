@@ -160,7 +160,7 @@ export default function AdminUsers() {
     setSaving(true);
     await supabase.from("profiles").update({
       ...form,
-      hourly_rate: form.hourly_rate ? Number(form.hourly_rate).eq("id", editing.id).select().single().then(r => r.data) : undefined,
+      hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined,
     });
     setSaving(false);
     setEditing(null);
@@ -181,7 +181,7 @@ export default function AdminUsers() {
 
   async function handleAddUserType() {
     if (!newUserType.trim()) return;
-    await supabase.from("user_types").insert({ name: newUserType.trim().select().single().then(r => r.data) });
+    await supabase.from("user_types").insert({ name: newUserType.trim() });
     setNewUserType("");
     setAddingType(false);
     loadData();

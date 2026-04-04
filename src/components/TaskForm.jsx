@@ -71,7 +71,7 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     if (!newProjectName.trim()) return;
     setSavingProject(true);
     const created = await supabase.from("projects").insert({
-      name: newProjectName.trim().select().single().then(r => r.data),
+      name: newProjectName.trim(),
       client: newProjectClient.trim() || "—",
       status: "in_corso",
     });

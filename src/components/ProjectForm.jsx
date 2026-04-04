@@ -79,7 +79,7 @@ export default function ProjectForm({ initial = {}, onSubmit, onCancel, loading,
   async function handleCreateAzienda() {
     if (!newAziendaNome.trim()) return;
     setSavingAzienda(true);
-    const created = await supabase.from("crm_aziende").insert({ nome: newAziendaNome.trim().select().single().then(r => r.data) });
+    const created = await supabase.from("crm_aziende").insert({ nome: newAziendaNome.trim() });
     const updated = await supabase.from("crm_aziende").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []);
     setAziende(updated);
     // auto-select the newly created azienda

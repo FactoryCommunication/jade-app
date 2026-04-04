@@ -24,7 +24,7 @@ export default function ChecklistEditor({ taskId }) {
     setLoading(true);
     await supabase.from("checklist_items").insert({
       task_id: taskId,
-      text: newText.trim().select().single().then(r => r.data),
+      text: newText.trim(),
       completed: false,
       order: items.length,
     });

@@ -40,7 +40,7 @@ export default function ArticleEditor({ initial, categorie, progetti, canManageR
 
   async function createCategory() {
     if (!newCatName.trim()) return;
-    const cat = await supabase.from("wiki_categorie").insert({ nome: newCatName.trim().select().single().then(r => r.data) });
+    const cat = await supabase.from("wiki_categorie").insert({ nome: newCatName.trim() });
     setForm({ ...form, categoria_id: cat.id });
     setNewCatName("");
     setAddingCat(false);

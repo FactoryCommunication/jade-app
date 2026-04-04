@@ -40,14 +40,14 @@ export default function CRMFunzioneLavorativa() {
 
   async function handleAdd() {
     if (!newNome.trim()) return;
-    await supabase.from("crm_funzioni_lavorative").insert({ nome: newNome.trim().select().single().then(r => r.data) });
+    await supabase.from("crm_funzioni_lavorative").insert({ nome: newNome.trim() });
     setNewNome("");
     loadData();
   }
 
   async function handleUpdate(id) {
     if (!editNome.trim()) return;
-    await supabase.from("crm_funzioni_lavorative").update({ nome: editNome.trim().eq("id", id).select().single().then(r => r.data) });
+    await supabase.from("crm_funzioni_lavorative").update({ nome: editNome.trim() });
     setEditingId(null);
     loadData();
   }

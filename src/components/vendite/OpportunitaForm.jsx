@@ -57,7 +57,7 @@ export default function OpportunitaForm({ initial = {}, stati = [], teamVendite 
   const handleCreaAzienda = async () => {
     if (!newAziendaNome.trim()) return;
     setSavingAzienda(true);
-    const created = await supabase.from("crm_aziende").insert({ nome: newAziendaNome.trim().select().single().then(r => r.data) });
+    const created = await supabase.from("crm_aziende").insert({ nome: newAziendaNome.trim() });
     setAziende(prev => [...prev, created]);
     setForm({ ...form, azienda_id: created.id, azienda_nome: created.nome, referente_id: "", referente_nome: "" });
     setNewAziendaNome("");

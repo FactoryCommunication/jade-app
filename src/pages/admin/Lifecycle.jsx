@@ -32,7 +32,7 @@ export default function AdminLifecycle() {
     await supabase.from("crm_lifecycle_stages").update({
       nome: editForm.nome,
       colore: editForm.colore,
-      ordine: Number(editForm.ordine).eq("id", editingId).select().single().then(r => r.data),
+      ordine: Number(editForm.ordine),
     });
     setEditingId(null);
     setSaving(false);
@@ -43,7 +43,7 @@ export default function AdminLifecycle() {
     if (!newForm.nome.trim()) return;
     setSaving(true);
     await supabase.from("crm_lifecycle_stages").insert({
-      nome: newForm.nome.trim().select().single().then(r => r.data),
+      nome: newForm.nome.trim(),
       colore: newForm.colore,
       ordine: stages.length,
     });

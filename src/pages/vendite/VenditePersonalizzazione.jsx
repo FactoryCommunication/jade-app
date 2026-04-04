@@ -168,12 +168,12 @@ export default function VenditePersonalizzazione() {
           <Input placeholder="Nuova categoria..." value={newCatNome} onChange={e => setNewCatNome(e.target.value)} className="h-8 text-sm max-w-xs"
             onKeyDown={async e => {
               if (e.key === "Enter" && newCatNome.trim()) {
-                const rec = await supabase.from("vendita_categorie_risorse").insert({ nome: newCatNome.trim().select().single().then(r => r.data) });
+                const rec = await supabase.from("vendita_categorie_risorse").insert({ nome: newCatNome.trim() });
                 setCategorie(prev => [...prev, rec]); setNewCatNome("");
               }
             }} />
           <Button size="sm" disabled={!newCatNome.trim()} onClick={async () => {
-            const rec = await supabase.from("vendita_categorie_risorse").insert({ nome: newCatNome.trim().select().single().then(r => r.data) });
+            const rec = await supabase.from("vendita_categorie_risorse").insert({ nome: newCatNome.trim() });
             setCategorie(prev => [...prev, rec]); setNewCatNome("");
           }}><Plus className="h-3.5 w-3.5" /></Button>
         </div>

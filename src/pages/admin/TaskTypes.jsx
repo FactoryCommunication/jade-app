@@ -22,17 +22,15 @@ export default function AdminTaskTypes() {
   const [colorSettingId, setColorSettingId] = useState(null);
   const [savingColors, setSavingColors] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const [t, settings] = await Promise.all([
-      supabase.from("task_types").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-      supabase.from("app_settings").select("*").eq("key", "tipo_task_colors").maybeSingle().then(r => r.data),
+    const [{ data: t }, { data: settings }] = await Promise.all([
+      supabase.from("task_types").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("app_settings").select("*").eq("key", "tipo_task_colors"),
     ]);
-    setTypes(t);
-    if (settings.length > 0) {
+    setTypes(t || []);
+    if (settings && settings.length > 0) {
       try {
         setColors({ ...DEFAULT_COLORS, ...JSON.parse(settings[0].value) });
         setColorSettingId(settings[0].id);
@@ -45,17 +43,16 @@ export default function AdminTaskTypes() {
     setSavingColors(true);
     const value = JSON.stringify(newColors);
     if (colorSettingId) {
-      await supabase.from("app_settings").update({ value }).eq("id", colorSettingId).select().single().then(r => r.data);
+      await supabase.from("app_settings").update({ value }).eq("id", colorSettingId);
     } else {
-      const rec = await supabase.from("app_settings").insert({ key: "tipo_task_colors", value }).select().single().then(r => r.data);
-      setColorSettingId(rec.id);
+      const { data: rec } = await supabase.from("app_settings").insert({ key: "tipo_task_colors", value }).select().single();
+      if (rec) setColorSettingId(rec.id);
     }
     setSavingColors(false);
   }
 
   function handleColorChange(key, val) {
-    const newColors = { ...colors, [key]: val };
-    setColors(newColors);
+    setColors({ ...colors, [key]: val });
   }
 
   function openCreate() {
@@ -72,11 +69,11 @@ export default function AdminTaskTypes() {
 
   async function handleSave() {
     setSaving(true);
-    const data = { ...form, hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : undefined };
+    const data = { ...form, hourly_rate: form.hourly_rate ? Number(form.hourly_rate) : null };
     if (editing) {
-      await supabase.from("task_types").update(editing.id, data);
+      await supabase.from("task_types").update(data).eq("id", editing.id);
     } else {
-      await supabase.from("task_types").create(data);
+      await supabase.from("task_types").insert(data);
     }
     setSaving(false);
     setShowForm(false);
@@ -84,17 +81,15 @@ export default function AdminTaskTypes() {
   }
 
   async function handleDelete(id) {
-    await supabase.from("task_types").delete(id);
+    await supabase.from("task_types").delete().eq("id", id);
     loadData();
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -108,7 +103,6 @@ export default function AdminTaskTypes() {
         </Button>
       </div>
 
-      {/* Colori Tipo Task */}
       <div className="bg-card rounded-xl border border-border p-5">
         <div className="flex items-center gap-2 mb-4">
           <Palette className="h-4 w-4 text-muted-foreground" />
@@ -117,12 +111,7 @@ export default function AdminTaskTypes() {
         <div className="grid sm:grid-cols-3 gap-4">
           {Object.entries(TIPO_TASK_LABELS).map(([key, label]) => (
             <div key={key} className="flex items-center gap-3">
-              <input
-                type="color"
-                value={colors[key]}
-                onChange={(e) => handleColorChange(key, e.target.value)}
-                className="h-9 w-9 rounded-lg border border-border cursor-pointer"
-              />
+              <input type="color" value={colors[key]} onChange={(e) => handleColorChange(key, e.target.value)} className="h-9 w-9 rounded-lg border border-border cursor-pointer" />
               <div>
                 <p className="text-sm font-medium text-foreground">{label}</p>
                 <p className="text-xs text-muted-foreground">{colors[key]}</p>
@@ -130,24 +119,14 @@ export default function AdminTaskTypes() {
             </div>
           ))}
         </div>
-        <Button
-          size="sm"
-          className="mt-4"
-          disabled={savingColors}
-          onClick={() => saveColors(colors)}
-        >
+        <Button size="sm" className="mt-4" disabled={savingColors} onClick={() => saveColors(colors)}>
           {savingColors ? "Salvataggio..." : "Salva Colori"}
         </Button>
       </div>
 
-      {/* Tipo Lavoro list */}
       {types.length === 0 ? (
-        <EmptyState
-          icon={Tag}
-          title="Nessuna tipologia di lavoro"
-          description="Crea le tipologie di lavoro (es. Grafica, Web Design) con il relativo costo orario."
-          action={<Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Crea Tipologia</Button>}
-        />
+        <EmptyState icon={Tag} title="Nessuna tipologia di lavoro" description="Crea le tipologie di lavoro con il relativo costo orario."
+          action={<Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Crea Tipologia</Button>} />
       ) : (
         <div className="bg-card rounded-xl border border-border divide-y divide-border">
           {[...types].sort((a, b) => a.name.localeCompare(b.name, "it")).map((type) => (
@@ -165,12 +144,8 @@ export default function AdminTaskTypes() {
                 </span>
               )}
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(type)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(type.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(type)}><Pencil className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(type.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           ))}
@@ -189,7 +164,7 @@ export default function AdminTaskTypes() {
             </div>
             <div className="space-y-2">
               <Label>Tariffa oraria</Label>
-              <Input type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} placeholder="Es. 75,00 €" />
+              <Input type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} placeholder="Es. 75" />
             </div>
             <div className="space-y-2">
               <Label>Descrizione</Label>

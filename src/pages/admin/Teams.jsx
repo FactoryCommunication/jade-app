@@ -22,59 +22,81 @@ const SECTION_OPTIONS = [
   { value: "admin", label: "Admin" },
 ];
 
+function userName(u) {
+  if (u.nome || u.cognome) return `${u.nome || ""} ${u.cognome || ""}`.trim();
+  return u.email || "Utente senza nome";
+}
+
 export default function AdminTeams() {
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", section: "", responsabile_id: "", member_ids: [] });
+  const [form, setForm] = useState({ name: "", description: "", sections: [], responsabile_id: "", member_ids: [] });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const [t, u] = await Promise.all([
-      supabase.from("teams").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
+    const [{ data: t }, { data: u }] = await Promise.all([
+      supabase.from("teams").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200),
     ]);
-    setTeams(t);
-    setUsers(u);
+    setTeams(t || []);
+    setUsers(u || []);
     setLoading(false);
   }
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", description: "", section: "", responsabile_id: "", member_ids: [] });
+    setForm({ name: "", description: "", sections: [], responsabile_id: "", member_ids: [] });
     setShowForm(true);
   }
 
   function openEdit(team) {
     setEditing(team);
-    setForm({ name: team.name, description: team.description || "", section: team.section || "", responsabile_id: team.responsabile_id || "", member_ids: team.member_ids || [] });
+    // Supporta sia section (stringa) che sections (array) per retrocompatibilità
+    const sections = team.sections || (team.section ? [team.section] : []);
+    setForm({
+      name: team.name,
+      description: team.description || "",
+      sections,
+      responsabile_id: team.responsabile_id || "",
+      member_ids: team.member_ids || [],
+    });
     setShowForm(true);
   }
 
   function toggleMember(userId) {
     const ids = form.member_ids || [];
-    setForm({
-      ...form,
-      member_ids: ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId],
-    });
+    setForm({ ...form, member_ids: ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId] });
+  }
+
+  function toggleSection(value) {
+    const sections = form.sections || [];
+    setForm({ ...form, sections: sections.includes(value) ? sections.filter((s) => s !== value) : [...sections, value] });
   }
 
   async function handleSave() {
     setSaving(true);
     const selectedUsers = users.filter((u) => form.member_ids.includes(u.id));
-    const member_names = selectedUsers.map((u) => u.full_name || u.email);
+    const member_names = selectedUsers.map((u) => userName(u));
     const resp = users.find((u) => u.id === form.responsabile_id);
-    const data = { ...form, member_names, responsabile_nome: resp?.full_name || resp?.email || "" };
+    const data = {
+      name: form.name,
+      description: form.description,
+      sections: form.sections,
+      section: form.sections[0] || null, // retrocompatibilità
+      responsabile_id: form.responsabile_id || null,
+      responsabile_nome: resp ? userName(resp) : "",
+      member_ids: form.member_ids,
+      member_names,
+    };
     if (editing) {
-      await supabase.from("teams").update(data).eq("id", editing.id).select().single().then(r => r.data);
+      await supabase.from("teams").update(data).eq("id", editing.id);
     } else {
-      await supabase.from("teams").insert(data).select().single().then(r => r.data);
+      await supabase.from("teams").insert(data);
     }
     setSaving(false);
     setShowForm(false);
@@ -86,13 +108,11 @@ export default function AdminTeams() {
     loadData();
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -107,54 +127,47 @@ export default function AdminTeams() {
       </div>
 
       {teams.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title="Nessun team"
-          description="Crea il primo team e assegna i collaboratori."
-          action={<Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Crea Team</Button>}
-        />
+        <EmptyState icon={Users} title="Nessun team" description="Crea il primo team e assegna i collaboratori."
+          action={<Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Crea Team</Button>} />
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {teams.map((team) => (
-            <div key={team.id} className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-foreground">{team.name}</h3>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(team)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(team.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+          {teams.map((team) => {
+            const sections = team.sections || (team.section ? [team.section] : []);
+            return (
+              <div key={team.id} className="bg-card rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold text-foreground">{team.name}</h3>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(team)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(team.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {sections.map((s) => (
+                    <span key={s} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                      {SECTION_OPTIONS.find((o) => o.value === s)?.label || s}
+                    </span>
+                  ))}
+                </div>
+                {team.description && <p className="text-sm text-muted-foreground mb-3">{team.description}</p>}
+                {team.responsabile_nome && <p className="text-xs text-muted-foreground mb-2">👤 Responsabile: <strong>{team.responsabile_nome}</strong></p>}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {(team.member_names || []).length === 0 ? (
+                    <span className="text-xs text-muted-foreground">Nessun membro</span>
+                  ) : (
+                    (team.member_names || []).map((name, i) => (
+                      <span key={i} className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-full">{name}</span>
+                    ))
+                  )}
                 </div>
               </div>
-              {team.section && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium mb-2 inline-block">
-                  {SECTION_OPTIONS.find((s) => s.value === team.section)?.label || team.section}
-                </span>
-              )}
-              {team.description && <p className="text-sm text-muted-foreground mb-3">{team.description}</p>}
-              {team.responsabile_nome && (
-                <p className="text-xs text-muted-foreground mb-2">👤 Responsabile: <strong>{team.responsabile_nome}</strong></p>
-              )}
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {(team.member_names || []).length === 0 ? (
-                  <span className="text-xs text-muted-foreground">Nessun membro</span>
-                ) : (
-                  (team.member_names || []).map((name, i) => (
-                    <span key={i} className="text-xs bg-accent text-accent-foreground px-2 py-1 rounded-full">
-                      {name}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Modifica Team" : "Nuovo Team"}</DialogTitle>
           </DialogHeader>
@@ -163,29 +176,38 @@ export default function AdminTeams() {
               <Label>Nome Team *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
+
             <div className="space-y-2">
-              <Label>Modulo</Label>
-              <Select value={form.section} onValueChange={(v) => setForm({ ...form, section: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleziona modulo..." /></SelectTrigger>
-                <SelectContent>
-                  {SECTION_OPTIONS.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Moduli (puoi selezionarne più di uno)</Label>
+              <div className="space-y-2 border border-border rounded-lg p-3 max-h-40 overflow-y-auto">
+                {SECTION_OPTIONS.map((s) => (
+                  <div key={s.value} className="flex items-center gap-3">
+                    <Checkbox
+                      checked={(form.sections || []).includes(s.value)}
+                      onCheckedChange={() => toggleSection(s.value)}
+                    />
+                    <span className="text-sm">{s.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
+
             <div className="space-y-2">
               <Label>Responsabile</Label>
               <Select value={form.responsabile_id} onValueChange={(v) => setForm({ ...form, responsabile_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleziona responsabile..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={null}>Nessuno</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>)}
+                  <SelectItem value="">Nessuno</SelectItem>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{userName(u)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>Descrizione</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
+
             <div className="space-y-2">
               <Label>Membri</Label>
               <div className="space-y-2 max-h-48 overflow-y-auto border border-border rounded-lg p-3">
@@ -196,17 +218,16 @@ export default function AdminTeams() {
                       onCheckedChange={() => toggleMember(user.id)}
                     />
                     <div>
-                      <p className="text-sm font-medium">{user.full_name || user.email}</p>
+                      <p className="text-sm font-medium">{userName(user)}</p>
                       {user.job_title && <p className="text-xs text-muted-foreground">{user.job_title}</p>}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
             <div className="flex gap-3 pt-2">
-              <Button onClick={handleSave} disabled={saving || !form.name}>
-                {saving ? "Salvataggio..." : "Salva"}
-              </Button>
+              <Button onClick={handleSave} disabled={saving || !form.name}>{saving ? "Salvataggio..." : "Salva"}</Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Annulla</Button>
             </div>
           </div>

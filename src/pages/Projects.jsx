@@ -14,10 +14,20 @@ import moment from "moment";
 
 function cleanProject(data) {
   return {
-    ...data,
+    name: data.name || "",
+    client: data.client || data.aziende_nomi?.[0] || "—",
+    description: data.description || null,
+    status: data.status || "da_pianificare",
+    priority: data.priority || "media",
+    start_date: data.start_date || null,
+    end_date: data.end_date || null,
+    color: data.color || "#6366f1",
     team_id: data.team_id === "none" || !data.team_id ? null : data.team_id,
+    team_name: data.team_name || null,
     manager_id: data.manager_id === "none" || !data.manager_id ? null : data.manager_id,
+    manager_name: data.manager_name || null,
     referente_id: data.referente_id === "none" || !data.referente_id ? null : data.referente_id,
+    referente_nome: data.referente_nome || null,
     budget_hours: data.budget_hours ? Number(data.budget_hours) : null,
     budget_euro: data.budget_euro ? Number(data.budget_euro) : null,
     aziende_ids: data.aziende_ids?.length > 0 ? data.aziende_ids : null,
@@ -92,10 +102,16 @@ export default function Projects() {
 
   async function handleCreate(data) {
     setSaving(true);
-    await supabase.from("projects").insert(cleanProject(data));
-    setShowCreate(false);
+    const cleaned = cleanProject(data);
+    console.log("📦 DATI INVIATI:", JSON.stringify(cleaned, null, 2));
+    const { data: result, error } = await supabase.from("projects").insert(cleaned).select().single();
+    console.log("✅ RISULTATO:", result);
+    console.log("❌ ERRORE:", error);
+    if (!error) {
+      setShowCreate(false);
+      loadData();
+    }
     setSaving(false);
-    loadData();
   }
 
   function getProjectHours(projectId) {

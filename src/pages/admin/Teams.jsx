@@ -85,13 +85,13 @@ export default function AdminTeams() {
     const resp = users.find((u) => u.id === respId);
     const data = {
       name: form.name,
-      description: form.description,
-      sections: form.sections,
+      description: form.description || null,
+      sections: form.sections.length > 0 ? form.sections : null,
       section: form.sections[0] || null,
       responsabile_id: respId,
       responsabile_nome: resp ? userName(resp) : "",
-      member_ids: form.member_ids,
-      member_names,
+      member_ids: form.member_ids.length > 0 ? form.member_ids : null,
+      member_names: member_names.length > 0 ? member_names : null,
     };
     if (editing) {
       await supabase.from("teams").update(data).eq("id", editing.id);

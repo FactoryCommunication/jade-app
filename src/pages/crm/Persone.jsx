@@ -1,200 +1,344 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { UserCircle, Plus, Search, Pencil, Trash2, Linkedin, Instagram, Facebook } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import EmptyState from "@/components/EmptyState";
-import PersonaForm from "@/components/crm/PersonaForm";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, X, UserCircle, Upload, Loader2 } from "lucide-react";
 
-const lifecycleColors = {
-  "Lead": "bg-blue-100 text-blue-700",
-  "Prospect": "bg-yellow-100 text-yellow-700",
-  "Customer": "bg-green-100 text-green-700",
-  "Ex Customer": "bg-gray-100 text-gray-600",
-  "Ambassador Partner": "bg-purple-100 text-purple-700",
-  "Non in Target": "bg-red-100 text-red-600",
-  "Non Affidabile": "bg-red-200 text-red-800",
-};
+const LIFECYCLE_OPTIONS = ["Lead", "Prospect", "Customer", "Ex Customer", "Ambassador Partner", "Non in Target", "Non Affidabile"];
+const TELEFONO_LABELS_BASE = ["Fisso", "Mobile", "Centralino"];
+const EMAIL_LABELS_BASE = ["Aziendale", "Personale"];
 
-export default function Persone() {
-  const [persone, setPersone] = useState([]);
-  const [aziende, setAziende] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [personaToDelete, setPersonaToDelete] = useState(null);
-  const [deleteCode, setDeleteCode] = useState("");
-  const confirmCode = personaToDelete ? (personaToDelete.cognome + personaToDelete.nome).substring(0, 4).toUpperCase() + "-DEL" : "";
+export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCancel, loading }) {
+  const [form, setForm] = useState({
+    titolo: initial.titolo || "none",
+    nome: initial.nome || "",
+    cognome: initial.cognome || "",
+    foto_url: initial.foto_url || "",
+    funzione_lavorativa: initial.funzione_lavorativa || "none",
+    azienda_id: initial.azienda_id || "none",
+    azienda_nome: initial.azienda_nome || "",
+    emails: initial.emails?.length ? initial.emails : [],
+    telefoni: initial.telefoni || [],
+    lifecycle: initial.lifecycle || [],
+    partita_iva: initial.partita_iva || "",
+    codice_fiscale: initial.codice_fiscale || "",
+    note_amministrative: initial.note_amministrative || "",
+    indirizzo_residenza: initial.indirizzo_residenza || "",
+    indirizzo_domicilio: initial.indirizzo_domicilio || "",
+    linkedin: initial.linkedin || "",
+    instagram: initial.instagram || "",
+    facebook: initial.facebook || "",
+    twitter: initial.twitter || "",
+    note: initial.note || "",
+  });
+  const [tab, setTab] = useState("generale");
+  const [funzioni, setFunzioni] = useState([]);
+  const [titoli, setTitoli] = useState([]);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const fotoInputRef = useRef();
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    Promise.all([
+      supabase.from("crm_funzioni_lavorative").select("*").order("nome", { ascending: true }),
+      supabase.from("crm_titoli").select("*").order("nome", { ascending: true }),
+    ]).then(([{ data: f }, { data: t }]) => {
+      setFunzioni(f || []);
+      setTitoli(t || []);
+    });
+  }, []);
 
-  async function loadData() {
-    const [p, a] = await Promise.all([
-      supabase.from("crm_persone").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-      supabase.from("crm_aziende").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-    ]);
-    setPersone(p);
-    setAziende(a);
-    setLoading(false);
+  function handleAziendaChange(v) {
+    const az = aziende.find((a) => a.id === v);
+    setForm({
+      ...form,
+      azienda_id: v,
+      azienda_nome: az?.nome || "",
+      lifecycle: az?.lifecycle?.length ? az.lifecycle : form.lifecycle,
+    });
   }
 
-  async function handleSave(data) {
-    setSaving(true);
-    if (editing) await supabase.from("crm_persone").update(data).eq("id", editing.id).select().single().then(r => r.data);
-    else await supabase.from("crm_persone").insert(data).select().single().then(r => r.data);
-    setSaving(false);
-    setShowForm(false);
-    setEditing(null);
-    loadData();
+  const toggleLifecycle = (val) => {
+    const curr = form.lifecycle || [];
+    setForm({ ...form, lifecycle: curr.includes(val) ? curr.filter((v) => v !== val) : [...curr, val] });
+  };
+
+  const addEmail = () => setForm({ ...form, emails: [...form.emails, { indirizzo: "", etichetta: "Aziendale" }] });
+  const removeEmail = (i) => setForm({ ...form, emails: form.emails.filter((_, idx) => idx !== i) });
+  const updateEmail = (i, key, val) => {
+    const e = [...form.emails]; e[i] = { ...e[i], [key]: val }; setForm({ ...form, emails: e });
+  };
+  const handleEmailEtichettaChange = (i, val) => {
+    const e = [...form.emails];
+    e[i] = val === "__altro__" ? { ...e[i], etichetta: "", _customLabel: true } : { ...e[i], etichetta: val, _customLabel: false };
+    setForm({ ...form, emails: e });
+  };
+
+  const addTelefono = () => setForm({ ...form, telefoni: [...form.telefoni, { numero: "", etichetta: "Mobile" }] });
+  const removeTelefono = (i) => setForm({ ...form, telefoni: form.telefoni.filter((_, idx) => idx !== i) });
+  const updateTelefono = (i, key, val) => {
+    const t = [...form.telefoni]; t[i] = { ...t[i], [key]: val }; setForm({ ...form, telefoni: t });
+  };
+  const handleEtichettaChange = (i, val) => {
+    const t = [...form.telefoni];
+    t[i] = val === "__altro__" ? { ...t[i], etichetta: "", _customLabel: true } : { ...t[i], etichetta: val, _customLabel: false };
+    setForm({ ...form, telefoni: t });
+  };
+
+  async function handleFotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const fileName = `persona_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("avatars").upload(fileName, file, { upsert: true });
+      if (!error) {
+        const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
+        setForm((f) => ({ ...f, foto_url: data.publicUrl }));
+      }
+    } catch (err) {
+      console.error("Errore upload foto:", err);
+    }
+    setUploadingFoto(false);
   }
 
-  async function handleDelete(id) {
-    await supabase.from("crm_persone").delete().eq("id", id);
-    if (selected?.id === id) setSelected(null);
-    setPersonaToDelete(null);
-    setDeleteCode("");
-    loadData();
-  }
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const cleanForm = {
+      ...form,
+      titolo: form.titolo === "none" ? null : form.titolo,
+      azienda_id: form.azienda_id === "none" ? null : form.azienda_id,
+      funzione_lavorativa: form.funzione_lavorativa === "none" ? null : form.funzione_lavorativa,
+      emails: form.emails.map(({ _customLabel, ...e }) => e),
+      telefoni: form.telefoni.map(({ _customLabel, ...t }) => t),
+    };
+    onSubmit(cleanForm);
+  };
 
-  const filtered = persone
-    .filter((p) =>
-      `${p.nome} ${p.cognome}`.toLowerCase().includes(search.toLowerCase()) ||
-      (p.emails || []).some(e => e.indirizzo?.toLowerCase().includes(search.toLowerCase())) ||
-      p.azienda_nome?.toLowerCase().includes(search.toLowerCase()) ||
-      p.azienda_nome?.toLowerCase().includes(search.toLowerCase())
-    )
-    .sort((a, b) => (a.cognome || "").localeCompare(b.cognome || "", "it"));
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-    </div>
-  );
+  const tabs = [
+    { id: "generale", label: "Generale" },
+    { id: "amministrativa", label: "Amministrativa" },
+    { id: "indirizzi", label: "Indirizzi" },
+    { id: "social", label: "Social" },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Persone</h2>
-          <p className="text-sm text-muted-foreground">{persone.length} contatti nel CRM</p>
-        </div>
-        <Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2">
-          <Plus className="h-4 w-4" />Nuovo Contatto
-        </Button>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
+        {tabs.map((t) => (
+          <button key={t.id} type="button" onClick={() => setTab(t.id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Cerca per nome, email o azienda..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
-
-      {filtered.length === 0 ? (
-        <EmptyState icon={UserCircle} title="Nessun contatto" description="Aggiungi il primo contatto al CRM."
-          action={<Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2"><Plus className="h-4 w-4" />Nuovo Contatto</Button>} />
-      ) : (
-        <div className="bg-card rounded-xl border border-border divide-y divide-border">
-          {filtered.map((p) => (
-            <div key={p.id} className="p-4 flex items-center gap-4 hover:bg-secondary/30 transition-colors cursor-pointer" onClick={() => setSelected(p)}>
-              <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0 overflow-hidden border border-border">
-                {p.foto_url
-                  ? <img src={p.foto_url} alt={`${p.nome} ${p.cognome}`} className="h-full w-full object-cover" />
-                  : <span className="font-bold text-accent-foreground text-sm">{p.nome?.[0]}{p.cognome?.[0]}</span>}
+      {tab === "generale" && (
+        <div className="space-y-4">
+          <div className="flex gap-4 items-start">
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="h-20 w-20 rounded-full border border-border bg-secondary flex items-center justify-center overflow-hidden">
+                {form.foto_url ? (
+                  <img src={form.foto_url} alt="Foto" className="h-full w-full object-cover" />
+                ) : (
+                  <UserCircle className="h-10 w-10 text-muted-foreground" />
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-foreground">{p.nome} {p.cognome}</p>
-                <div className="flex flex-wrap gap-2 mt-0.5 items-center">
-                  {p.ruolo && <span className="text-xs text-muted-foreground">{p.ruolo}</span>}
-                  {p.azienda_nome && <span className="text-xs text-muted-foreground">• {p.azienda_nome}</span>}
-                  {(p.telefoni || []).length > 0 && <span className="text-xs text-muted-foreground">📞 {p.telefoni[0].numero}</span>}
-                  {(p.emails || []).length > 0 && <span className="text-xs text-muted-foreground">✉ {p.emails[0].indirizzo}</span>}
-                  {(p.lifecycle || []).map((l) => (
-                    <span key={l} className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${lifecycleColors[l] || "bg-secondary text-muted-foreground"}`}>{l}</span>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditing(p); setShowForm(true); }}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setPersonaToDelete(p); setDeleteCode(""); }}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {selected && (
-        <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>{selected.nome} {selected.cognome}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 text-sm">
-              {selected.ruolo && <p><span className="font-medium">Ruolo:</span> {selected.ruolo}</p>}
-              {selected.azienda_nome && <p><span className="font-medium">Azienda:</span> {selected.azienda_nome}</p>}
-              {(selected.emails || []).length > 0 && (
-                <div><span className="font-medium">Email:</span>
-                  <ul className="mt-1 space-y-0.5">{(selected.emails || []).map((e, i) => <li key={i} className="text-muted-foreground">{e.etichetta}: {e.indirizzo}</li>)}</ul>
-                </div>
+              <Button type="button" variant="outline" size="sm" className="gap-1 text-xs h-7 w-20 bg-white" onClick={() => fotoInputRef.current?.click()} disabled={uploadingFoto}>
+                {uploadingFoto ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {uploadingFoto ? "..." : "Foto"}
+              </Button>
+              {form.foto_url && (
+                <button type="button" className="text-xs text-destructive" onClick={() => setForm({ ...form, foto_url: "" })}>Rimuovi</button>
               )}
-              {(selected.telefoni || []).length > 0 && (
-                <div><span className="font-medium">Telefoni:</span>
-                  <ul className="mt-1 space-y-0.5">{selected.telefoni.map((t, i) => <li key={i} className="text-muted-foreground">{t.etichetta}: {t.numero}</li>)}</ul>
-                </div>
-              )}
-              {selected.indirizzo_residenza && <p><span className="font-medium">Residenza:</span> {selected.indirizzo_residenza}</p>}
-              {selected.indirizzo_domicilio && <p><span className="font-medium">Domicilio:</span> {selected.indirizzo_domicilio}</p>}
-              {selected.partita_iva && <p><span className="font-medium">P.IVA:</span> {selected.partita_iva}</p>}
-              {selected.codice_fiscale && <p><span className="font-medium">C.F.:</span> {selected.codice_fiscale}</p>}
-              <div className="flex gap-3 pt-1">
-                {selected.linkedin && <a href={selected.linkedin} target="_blank" className="text-primary hover:underline flex items-center gap-1 text-xs"><Linkedin className="h-3.5 w-3.5" />LinkedIn</a>}
-                {selected.instagram && <a href={selected.instagram} target="_blank" className="text-primary hover:underline flex items-center gap-1 text-xs"><Instagram className="h-3.5 w-3.5" />Instagram</a>}
-                {selected.facebook && <a href={selected.facebook} target="_blank" className="text-primary hover:underline flex items-center gap-1 text-xs"><Facebook className="h-3.5 w-3.5" />Facebook</a>}
-              </div>
-              {selected.note && <p><span className="font-medium">Note:</span> {selected.note}</p>}
+              <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} />
             </div>
-            <div className="flex gap-2 pt-2">
-              <Button onClick={() => { setEditing(selected); setSelected(null); setShowForm(true); }}>Modifica</Button>
-              <Button variant="outline" onClick={() => setSelected(null)}>Chiudi</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
 
-      <AlertDialog open={!!personaToDelete} onOpenChange={(o) => { if (!o) { setPersonaToDelete(null); setDeleteCode(""); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Eliminare il contatto?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3">
-              <span>Stai per eliminare <strong>{personaToDelete?.nome} {personaToDelete?.cognome}</strong>. Questa azione è irreversibile.</span>
-              <span className="block font-mono font-bold text-lg text-foreground bg-secondary px-3 py-1 rounded text-center tracking-widest">{confirmCode}</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="px-1 pb-2">
-            <Input autoFocus placeholder={`Digita ${confirmCode}`} value={deleteCode} onChange={(e) => setDeleteCode(e.target.value.toUpperCase())} className="font-mono tracking-widest" />
+            <div className="flex-1 grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Titolo</Label>
+                <Select value={form.titolo} onValueChange={(v) => setForm({ ...form, titolo: v })}>
+                  <SelectTrigger className="bg-white h-9"><SelectValue placeholder="Titolo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessuno</SelectItem>
+                    {titoli.map((t) => <SelectItem key={t.id} value={t.nome}>{t.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome *</Label>
+                <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required className="bg-white h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cognome *</Label>
+                <Input value={form.cognome} onChange={(e) => setForm({ ...form, cognome: e.target.value })} required className="bg-white h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Azienda</Label>
+                <Select value={form.azienda_id} onValueChange={handleAziendaChange}>
+                  <SelectTrigger className="bg-white h-9"><SelectValue placeholder="Seleziona azienda" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessuna</SelectItem>
+                    {[...aziende].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'it')).map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs">Funzione Lavorativa</Label>
+                <Select value={form.funzione_lavorativa} onValueChange={(v) => setForm({ ...form, funzione_lavorativa: v })}>
+                  <SelectTrigger className="bg-white h-9"><SelectValue placeholder="Seleziona funzione" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessuna</SelectItem>
+                    {funzioni.map((f) => <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteCode("")}>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleDelete(personaToDelete?.id)} disabled={deleteCode !== confirmCode} className="bg-destructive text-destructive-foreground disabled:opacity-40">Elimina</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Modifica Contatto" : "Nuovo Contatto"}</DialogTitle>
-          </DialogHeader>
-          <PersonaForm initial={editing || {}} aziende={aziende} onSubmit={handleSave} onCancel={() => { setShowForm(false); setEditing(null); }} loading={saving} />
-        </DialogContent>
-      </Dialog>
-    </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Email</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addEmail} className="gap-1 h-6 text-xs px-2 bg-white">
+                  <Plus className="h-3 w-3" />Aggiungi
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.emails.map((em, i) => (
+                  <div key={i} className="flex gap-1 items-center">
+                    {em._customLabel ? (
+                      <Input value={em.etichetta} onChange={(e) => updateEmail(i, "etichetta", e.target.value)} placeholder="Etichetta" className="w-24 h-8 text-xs bg-white" />
+                    ) : (
+                      <select value={em.etichetta || "Aziendale"} onChange={(e) => handleEmailEtichettaChange(i, e.target.value)}
+                        className="h-8 rounded-md border border-input bg-white px-2 text-xs w-24">
+                        {EMAIL_LABELS_BASE.map((l) => <option key={l} value={l}>{l}</option>)}
+                        <option value="__altro__">Altro...</option>
+                      </select>
+                    )}
+                    <Input type="email" value={em.indirizzo} onChange={(e) => updateEmail(i, "indirizzo", e.target.value)} placeholder="email@..." className="bg-white h-8 text-xs flex-1" />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeEmail(i)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Telefoni</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addTelefono} className="gap-1 h-6 text-xs px-2 bg-white">
+                  <Plus className="h-3 w-3" />Aggiungi
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {form.telefoni.map((t, i) => (
+                  <div key={i} className="flex gap-1 items-center">
+                    {t._customLabel ? (
+                      <Input value={t.etichetta} onChange={(e) => updateTelefono(i, "etichetta", e.target.value)} placeholder="Etichetta" className="w-24 h-8 text-xs bg-white" />
+                    ) : (
+                      <select value={t.etichetta || "Mobile"} onChange={(e) => handleEtichettaChange(i, e.target.value)}
+                        className="h-8 rounded-md border border-input bg-white px-2 text-xs w-24">
+                        {TELEFONO_LABELS_BASE.map((l) => <option key={l} value={l}>{l}</option>)}
+                        <option value="__altro__">Altro...</option>
+                      </select>
+                    )}
+                    <Input value={t.numero} onChange={(e) => updateTelefono(i, "numero", e.target.value)} placeholder="Numero" className="bg-white h-8 text-xs flex-1" />
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeTelefono(i)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Lifecycle</Label>
+            <div className="flex flex-wrap gap-2">
+              {LIFECYCLE_OPTIONS.map((opt) => (
+                <button key={opt} type="button" onClick={() => toggleLifecycle(opt)}
+                  className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${form.lifecycle?.includes(opt) ? "bg-primary text-primary-foreground border-primary" : "bg-white border-border text-muted-foreground hover:border-primary"}`}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Note</Label>
+            <Textarea value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} rows={2} className="bg-white" />
+          </div>
+        </div>
+      )}
+
+      {tab === "amministrativa" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Partita IVA</Label>
+              <Input value={form.partita_iva} onChange={(e) => setForm({ ...form, partita_iva: e.target.value })} className="bg-white" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Codice Fiscale</Label>
+              <Input value={form.codice_fiscale} onChange={(e) => setForm({ ...form, codice_fiscale: e.target.value })} className="bg-white" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Note Amministrative</Label>
+            <Textarea value={form.note_amministrative} onChange={(e) => setForm({ ...form, note_amministrative: e.target.value })} rows={4} className="bg-white" />
+          </div>
+        </div>
+      )}
+
+      {tab === "indirizzi" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Indirizzo Residenza</Label>
+              <Input value={form.indirizzo_residenza} onChange={(e) => setForm({ ...form, indirizzo_residenza: e.target.value })} className="bg-white" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Indirizzo Domicilio</Label>
+              <Input value={form.indirizzo_domicilio} onChange={(e) => setForm({ ...form, indirizzo_domicilio: e.target.value })} className="bg-white" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "social" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>LinkedIn</Label>
+              <Input value={form.linkedin} onChange={(e) => setForm({ ...form, linkedin: e.target.value })} placeholder="https://linkedin.com/in/..." className="bg-white" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Instagram</Label>
+              <Input value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} placeholder="https://instagram.com/..." className="bg-white" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Facebook</Label>
+              <Input value={form.facebook} onChange={(e) => setForm({ ...form, facebook: e.target.value })} placeholder="https://facebook.com/..." className="bg-white" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Twitter / X</Label>
+              <Input value={form.twitter} onChange={(e) => setForm({ ...form, twitter: e.target.value })} placeholder="https://x.com/..." className="bg-white" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={loading}>{loading ? "Salvataggio..." : "Salva"}</Button>
+        {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Annulla</Button>}
+      </div>
+    </form>
   );
 }

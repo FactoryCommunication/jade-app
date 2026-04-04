@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
-import { FolderKanban, Plus, LayoutGrid, List, Calendar, Clock, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { FolderKanban, Plus, LayoutGrid, List, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ProjectCard from "../components/ProjectCard";
@@ -11,6 +11,19 @@ import { Input } from "@/components/ui/input";
 import StatusBadge from "../components/StatusBadge";
 import { Link } from "react-router-dom";
 import moment from "moment";
+
+function cleanProject(data) {
+  return {
+    ...data,
+    team_id: data.team_id === "none" || !data.team_id ? null : data.team_id,
+    manager_id: data.manager_id === "none" || !data.manager_id ? null : data.manager_id,
+    referente_id: data.referente_id === "none" || !data.referente_id ? null : data.referente_id,
+    budget_hours: data.budget_hours ? Number(data.budget_hours) : null,
+    budget_euro: data.budget_euro ? Number(data.budget_euro) : null,
+    aziende_ids: data.aziende_ids?.length > 0 ? data.aziende_ids : null,
+    aziende_nomi: data.aziende_nomi?.length > 0 ? data.aziende_nomi : null,
+  };
+}
 
 export default function Projects() {
   const [projects, setProjects] = useState([]);
@@ -54,27 +67,32 @@ export default function Projects() {
 
   useEffect(() => {
     loadData();
-    supabase.auth.getUser().then(r => r.data?.user).then((u) => setIsAdmin(u?.role === 'admin')).catch(() => {});
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from("profiles").select("role").eq("id", user.id).single().then(({ data }) => {
+          setIsAdmin(data?.role === "admin");
+        });
+      }
+    });
   }, []);
 
   async function loadData() {
-    const [p, te, t] = await Promise.all([
-      supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-      supabase.from("time_entries").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-      supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
+    const [{ data: p }, { data: te }, { data: t }, { data: u }] = await Promise.all([
+      supabase.from("projects").select("*").order("name", { ascending: true }),
+      supabase.from("time_entries").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("profiles").select("*").order("cognome", { ascending: true }),
     ]);
-    let u = [];
-    try { u = await supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []); } catch {}
-    setProjects(p);
-    setTimeEntries(te);
-    setTasks(t);
-    setUsers(u);
+    setProjects(p || []);
+    setTimeEntries(te || []);
+    setTasks(t || []);
+    setUsers(u || []);
     setLoading(false);
   }
 
   async function handleCreate(data) {
     setSaving(true);
-    await supabase.from("projects").insert(data).select().single().then(r => r.data);
+    await supabase.from("projects").insert(cleanProject(data));
     setShowCreate(false);
     setSaving(false);
     loadData();
@@ -82,10 +100,9 @@ export default function Projects() {
 
   function getProjectHours(projectId) {
     const logged = timeEntries.filter((te) => te.project_id === projectId).reduce((sum, te) => sum + (te.hours || 0), 0);
-    // Aggiungi ore stimate dei task senza registrazioni (stessa logica di ProjectDetail)
     const loggedTaskIds = new Set(timeEntries.filter((te) => te.project_id === projectId && te.task_id).map((te) => te.task_id));
-    const estimated = tasks.filter((t) => t.project_id === projectId && !loggedTaskIds.has(t.id) && (t.estimated_hours_total || 0) > 0)
-      .reduce((sum, t) => sum + (t.estimated_hours_total || 0), 0);
+    const estimated = tasks.filter((t) => t.project_id === projectId && !loggedTaskIds.has(t.id) && (t.estimated_hours || 0) > 0)
+      .reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
     return logged + estimated;
   }
 
@@ -93,7 +110,6 @@ export default function Projects() {
     return tasks.filter((t) => t.project_id === projectId).length;
   }
 
-  // Collect unique clients from projects
   const allClienti = [...new Set([
     ...projects.flatMap((p) => p.aziende_nomi || []),
     ...projects.map((p) => p.client).filter(Boolean),
@@ -102,16 +118,13 @@ export default function Projects() {
   const filteredProjects = projects.filter((p) => {
     if (searchText.trim()) {
       const q = searchText.toLowerCase();
-      const inName = (p.name || "").toLowerCase().includes(q);
-      const inClient = (p.client || "").toLowerCase().includes(q);
-      const inAziende = (p.aziende_nomi || []).some((n) => n.toLowerCase().includes(q));
-      const inManager = (p.manager_name || "").toLowerCase().includes(q);
-      if (!inName && !inClient && !inAziende && !inManager) return false;
+      if (!(p.name || "").toLowerCase().includes(q) &&
+          !(p.client || "").toLowerCase().includes(q) &&
+          !(p.aziende_nomi || []).some((n) => n.toLowerCase().includes(q)) &&
+          !(p.manager_name || "").toLowerCase().includes(q)) return false;
     }
     if (filterCliente !== "all") {
-      const matchesAzienda = (p.aziende_nomi || []).includes(filterCliente);
-      const matchesClient = p.client === filterCliente;
-      if (!matchesAzienda && !matchesClient) return false;
+      if (!(p.aziende_nomi || []).includes(filterCliente) && p.client !== filterCliente) return false;
     }
     if (filterResponsabile !== "all" && p.manager_id !== filterResponsabile) return false;
     if (filterStato !== "all" && p.status !== filterStato) return false;
@@ -119,13 +132,11 @@ export default function Projects() {
     return true;
   });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -135,50 +146,43 @@ export default function Projects() {
           <p className="text-muted-foreground mt-1">{filteredProjects.length} di {projects.length} progetti</p>
         </div>
         <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nuovo Progetto
+          <Plus className="h-4 w-4" />Nuovo Progetto
         </Button>
       </div>
 
-      {/* Filters + View Toggle */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Input
-          placeholder="Cerca progetto..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          className="w-52"
-        />
+        <Input placeholder="Cerca progetto..." value={searchText} onChange={(e) => setSearchText(e.target.value)} className="w-52 bg-white" />
         <Select value={filterCliente} onValueChange={setFilterCliente}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Tutti i clienti" /></SelectTrigger>
+          <SelectTrigger className="w-40 bg-white"><SelectValue placeholder="Tutti i clienti" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti i clienti</SelectItem>
             {allClienti.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterResponsabile} onValueChange={setFilterResponsabile}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Tutti i responsabili" /></SelectTrigger>
+          <SelectTrigger className="w-44 bg-white"><SelectValue placeholder="Tutti i responsabili" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti i responsabili</SelectItem>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>)}
+            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome} {u.cognome}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterStato} onValueChange={setFilterStato}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Tutti gli stati" /></SelectTrigger>
+          <SelectTrigger className="w-36 bg-white"><SelectValue placeholder="Tutti gli stati" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti gli stati</SelectItem>
-            <SelectItem value="in_corso">In Corso</SelectItem>
             <SelectItem value="completato">Completato</SelectItem>
-            <SelectItem value="in_pausa">In Pausa</SelectItem>
             <SelectItem value="da_pianificare">Da Pianificare</SelectItem>
+            <SelectItem value="in_corso">In Corso</SelectItem>
+            <SelectItem value="in_pausa">In Pausa</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterPriorita} onValueChange={setFilterPriorita}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Tutte le priorità" /></SelectTrigger>
+          <SelectTrigger className="w-36 bg-white"><SelectValue placeholder="Tutte le priorità" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutte le priorità</SelectItem>
             <SelectItem value="alta">Alta</SelectItem>
-            <SelectItem value="media">Media</SelectItem>
             <SelectItem value="bassa">Bassa</SelectItem>
+            <SelectItem value="media">Media</SelectItem>
           </SelectContent>
         </Select>
         <div className="ml-auto flex gap-1">
@@ -192,21 +196,13 @@ export default function Projects() {
       </div>
 
       {filteredProjects.length === 0 ? (
-        <EmptyState
-          icon={FolderKanban}
-          title="Nessun progetto"
-          description={projects.length === 0 ? "Crea il tuo primo progetto per iniziare a gestire task e tempo." : "Nessun progetto corrisponde ai filtri selezionati."}
-          action={projects.length === 0 ? <Button onClick={() => setShowCreate(true)} className="gap-2"><Plus className="h-4 w-4" />Crea Progetto</Button> : null}
-        />
+        <EmptyState icon={FolderKanban} title="Nessun progetto"
+          description={projects.length === 0 ? "Crea il tuo primo progetto." : "Nessun progetto corrisponde ai filtri."}
+          action={projects.length === 0 ? <Button onClick={() => setShowCreate(true)} className="gap-2"><Plus className="h-4 w-4" />Crea Progetto</Button> : null} />
       ) : viewMode === "card" ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              taskCount={getProjectTaskCount(project.id)}
-              hoursLogged={getProjectHours(project.id)}
-            />
+            <ProjectCard key={project.id} project={project} taskCount={getProjectTaskCount(project.id)} hoursLogged={getProjectHours(project.id)} />
           ))}
         </div>
       ) : (
@@ -227,7 +223,7 @@ export default function Projects() {
                 <tr key={project.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className={`h-2.5 w-2.5 rounded-full bg-${project.color || "indigo"}-500 shrink-0`} />
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: project.color || "#6366f1" }} />
                       <Link to={`/projects/${project.id}`} className="font-medium text-foreground hover:text-primary transition-colors">{project.name}</Link>
                     </div>
                   </td>
@@ -249,7 +245,7 @@ export default function Projects() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nuovo Progetto</DialogTitle>
           </DialogHeader>

@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import {
   FolderKanban, Menu, X, ShieldCheck,
   Users2, BarChart2, BookOpen,
@@ -8,28 +8,26 @@ import { applyAppColors } from "@/pages/admin/AppConfig";
 import { useState, useEffect } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useLanguage } from "@/lib/i18n";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
   const { t, lang, setLang } = useLanguage();
+  const { profile } = useAuth();
   const location = useLocation();
+  const isAdmin = profile?.role === "admin";
 
   useEffect(() => {
-    supabase.auth.getUser().then(r => r.data?.user).then((user) => {
-      setIsAdmin(user?.role === "admin");
-      setCurrentUser(user);
-    }).catch(() => {});
-    supabase.from("app_settings").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []).then((settings) => {
-      const logoSetting = settings.find((s) => s.key === "app_logo");
+    supabase.from("app_settings").select("*").then(({ data }) => {
+      if (!data) return;
+      const logoSetting = data.find((s) => s.key === "app_logo");
       if (logoSetting?.value) setLogoUrl(logoSetting.value);
-      const colSetting = settings.find((s) => s.key === "app_colors");
+      const colSetting = data.find((s) => s.key === "app_colors");
       if (colSetting?.value) {
         try { applyAppColors(JSON.parse(colSetting.value)); } catch {}
       }
-    }).catch(() => {});
+    });
   }, []);
 
   const navItems = [
@@ -86,7 +84,7 @@ export default function Layout() {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
-              {l === "it" ? "🇮🇹 IT" : "🇬🇧 EN"}
+              {l === "it" ? "IT" : "EN"}
             </button>
           ))}
         </div>
@@ -96,62 +94,42 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-60 bg-card/90 backdrop-blur-xl border-r border-border/50 fixed inset-y-0 left-0 z-30 shadow-sm">
         <div className="p-5 border-b border-border/40">
-          <img
-            src={logoUrl || "https://media.base44.com/images/public/69c915eef5b82efd9506dbc0/057571c67_2018-03-21FACTORYCOMMUNICATIONlogo.jpg"}
-            alt="Logo"
-            className="h-10 w-auto object-contain"
-          />
+          <img src={logoUrl || "/jabe.png"} alt="jabe" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex-1 overflow-y-auto flex flex-col">
           <NavLinks />
         </div>
         <LanguageToggle />
-        {/* User profile link */}
-        {currentUser && (
+        {profile && (
           <Link to="/profile" className="flex items-center gap-3 px-4 py-3.5 border-t border-border/40 hover:bg-muted/50 transition-colors">
-            {currentUser.avatar_url ? (
-              <img src={currentUser.avatar_url} alt="Avatar" className="h-8 w-8 rounded-full object-cover shrink-0 ring-2 ring-border/40" />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
-                {(currentUser.full_name?.[0] || currentUser.email?.[0] || "?").toUpperCase()}
-              </div>
-            )}
+            <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
+              {(profile.nome?.[0] || profile.cognome?.[0] || "?").toUpperCase()}
+            </div>
             <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{currentUser.full_name || currentUser.email}</p>
-              <p className="text-xs text-muted-foreground capitalize">{currentUser.role || "user"}</p>
+              <p className="text-sm font-medium truncate">{profile.nome} {profile.cognome}</p>
+              <p className="text-xs text-muted-foreground capitalize">{profile.role || "user"}</p>
             </div>
           </Link>
         )}
       </aside>
 
-      {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/40 z-40 flex items-center px-4 shadow-sm">
         <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted/60 transition-colors">
           <Menu className="h-5 w-5" />
         </button>
         <div className="ml-3">
-          <img
-            src={logoUrl || "https://media.base44.com/images/public/69c915eef5b82efd9506dbc0/057571c67_2018-03-21FACTORYCOMMUNICATIONlogo.jpg"}
-            alt="Logo"
-            className="h-8 w-auto object-contain"
-          />
+          <img src={logoUrl || "/jabe.png"} alt="jabe" className="h-8 w-auto object-contain" />
         </div>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-60 bg-card shadow-xl flex flex-col">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <img
-                src={logoUrl || "https://media.base44.com/images/public/69c915eef5b82efd9506dbc0/057571c67_2018-03-21FACTORYCOMMUNICATIONlogo.jpg"}
-                alt="Logo"
-                className="h-8 w-auto object-contain"
-              />
+              <img src={logoUrl || "/jabe.png"} alt="jabe" className="h-8 w-auto object-contain" />
               <button onClick={() => setMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-secondary">
                 <X className="h-4 w-4" />
               </button>
@@ -164,7 +142,6 @@ export default function Layout() {
         </div>
       )}
 
-      {/* Main Content */}
       <main className="flex-1 lg:ml-60 pt-14 lg:pt-0 bg-background">
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />

@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X, UserCircle } from "lucide-react";
+import { Plus, X, UserCircle, Upload, Loader2 } from "lucide-react";
 
 const LIFECYCLE_OPTIONS = ["Lead", "Prospect", "Customer", "Ex Customer", "Ambassador Partner", "Non in Target", "Non Affidabile"];
 const TELEFONO_LABELS_BASE = ["Fisso", "Mobile", "Centralino"];
@@ -37,6 +37,8 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
   const [tab, setTab] = useState("generale");
   const [funzioni, setFunzioni] = useState([]);
   const [titoli, setTitoli] = useState([]);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const fotoInputRef = useRef();
 
   useEffect(() => {
     Promise.all([
@@ -97,6 +99,24 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
     setForm({ ...form, telefoni: t });
   };
 
+  async function handleFotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const fileName = `persona_${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("avatars").upload(fileName, file, { upsert: true });
+      if (!error) {
+        const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
+        setForm((f) => ({ ...f, foto_url: data.publicUrl }));
+      }
+    } catch (err) {
+      console.error("Errore upload foto:", err);
+    }
+    setUploadingFoto(false);
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const cleanForm = {
@@ -130,7 +150,7 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
 
       {tab === "generale" && (
         <div className="space-y-4">
-          {/* Avatar placeholder */}
+          {/* Foto */}
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-full border border-border bg-secondary flex items-center justify-center overflow-hidden shrink-0">
               {form.foto_url ? (
@@ -139,10 +159,18 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
                 <UserCircle className="h-8 w-8 text-muted-foreground" />
               )}
             </div>
-            <div>
-              <p className="text-sm font-medium">{form.nome} {form.cognome}</p>
-              <p className="text-xs text-muted-foreground">Upload foto disponibile prossimamente</p>
+            <div className="flex flex-col gap-2">
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => fotoInputRef.current?.click()} disabled={uploadingFoto}>
+                {uploadingFoto ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                {uploadingFoto ? "Caricamento..." : "Carica foto"}
+              </Button>
+              {form.foto_url && (
+                <Button type="button" variant="ghost" size="sm" className="gap-2 text-destructive h-7 text-xs" onClick={() => setForm({ ...form, foto_url: "" })}>
+                  <X className="h-3 w-3" />Rimuovi
+                </Button>
+              )}
             </div>
+            <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoUpload} />
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -191,7 +219,6 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
             </div>
           </div>
 
-          {/* Email */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Email</Label>
@@ -218,7 +245,6 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
             ))}
           </div>
 
-          {/* Telefoni */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Telefoni</Label>
@@ -245,14 +271,8 @@ export default function PersonaForm({ initial = {}, aziende = [], onSubmit, onCa
             ))}
           </div>
 
-          {/* Lifecycle */}
           <div className="space-y-2">
-            <Label>
-              Lifecycle
-              {form.azienda_id && form.azienda_id !== "none" && (
-                <span className="ml-2 text-xs text-muted-foreground font-normal">(ereditato dall'azienda)</span>
-              )}
-            </Label>
+            <Label>Lifecycle</Label>
             <div className="flex flex-wrap gap-2">
               {LIFECYCLE_OPTIONS.map((opt) => (
                 <button key={opt} type="button" onClick={() => toggleLifecycle(opt)}

@@ -167,43 +167,50 @@ export default function AdminTeams() {
       )}
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Modifica Team" : "Nuovo Team"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Nome Team *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="bg-white" />
             </div>
-            <div className="space-y-2">
-              <Label>Moduli (puoi selezionarne più di uno)</Label>
-              <div className="space-y-2 border border-border rounded-lg p-3 max-h-40 overflow-y-auto">
-                {SECTION_OPTIONS.map((s) => (
-                  <div key={s.value} className="flex items-center gap-3">
-                    <Checkbox checked={(form.sections || []).includes(s.value)} onCheckedChange={() => toggleSection(s.value)} />
-                    <span className="text-sm">{s.label}</span>
-                  </div>
-                ))}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Moduli (puoi selezionarne più di uno)</Label>
+                <div className="space-y-2 border border-border rounded-lg p-3 max-h-52 overflow-y-auto bg-white">
+                  {SECTION_OPTIONS.map((s) => (
+                    <div key={s.value} className="flex items-center gap-3">
+                      <Checkbox checked={(form.sections || []).includes(s.value)} onCheckedChange={() => toggleSection(s.value)} />
+                      <span className="text-sm">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Responsabile</Label>
+                  <Select value={form.responsabile_id} onValueChange={(v) => setForm({ ...form, responsabile_id: v })}>
+                    <SelectTrigger className="bg-white"><SelectValue placeholder="Seleziona..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nessuno</SelectItem>
+                      {users.map((u) => <SelectItem key={u.id} value={u.id}>{userName(u)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrizione</Label>
+                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} className="bg-white" />
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Responsabile</Label>
-              <Select value={form.responsabile_id} onValueChange={(v) => setForm({ ...form, responsabile_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Seleziona responsabile..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nessuno</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{userName(u)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Descrizione</Label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
-            </div>
+
             <div className="space-y-2">
               <Label>Membri</Label>
-              <div className="space-y-2 max-h-48 overflow-y-auto border border-border rounded-lg p-3">
+              <div className="grid grid-cols-2 gap-2 border border-border rounded-lg p-3 max-h-48 overflow-y-auto bg-white">
                 {users.map((user) => (
                   <div key={user.id} className="flex items-center gap-3">
                     <Checkbox checked={(form.member_ids || []).includes(user.id)} onCheckedChange={() => toggleMember(user.id)} />
@@ -215,6 +222,7 @@ export default function AdminTeams() {
                 ))}
               </div>
             </div>
+
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} disabled={saving || !form.name}>{saving ? "Salvataggio..." : "Salva"}</Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Annulla</Button>

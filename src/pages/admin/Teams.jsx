@@ -5,21 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import EmptyState from "../../components/EmptyState";
 
 const SECTION_OPTIONS = [
-  { value: "pm", label: "Project Management" },
-  { value: "crm", label: "CRM" },
-  { value: "vendite", label: "Vendite" },
-  { value: "servizi", label: "Servizi" },
-  { value: "seo", label: "SEO" },
   { value: "amministrazione", label: "Amministrazione" },
-  { value: "finanza", label: "Finanza" },
-  { value: "wiki", label: "Wiki" },
   { value: "admin", label: "Admin" },
+  { value: "crm", label: "CRM" },
+  { value: "finanza", label: "Finanza" },
+  { value: "pm", label: "Project Management" },
+  { value: "seo", label: "SEO" },
+  { value: "servizi", label: "Servizi" },
+  { value: "vendite", label: "Vendite" },
+  { value: "wiki", label: "Wiki" },
 ];
 
 function userName(u) {
@@ -33,15 +32,15 @@ export default function AdminTeams() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", sections: [], responsabile_id: "none", member_ids: [] });
+  const [form, setForm] = useState({ name: "", description: "", sections: [], responsabile_ids: [], member_ids: [] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     const [{ data: t }, { data: u }] = await Promise.all([
-      supabase.from("teams").select("*").order("created_at", { ascending: false }).limit(200),
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("teams").select("*").order("name", { ascending: true }),
+      supabase.from("profiles").select("*").order("cognome", { ascending: true }),
     ]);
     setTeams(t || []);
     setUsers(u || []);
@@ -50,18 +49,19 @@ export default function AdminTeams() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", description: "", sections: [], responsabile_id: "none", member_ids: [] });
+    setForm({ name: "", description: "", sections: [], responsabile_ids: [], member_ids: [] });
     setShowForm(true);
   }
 
   function openEdit(team) {
     setEditing(team);
     const sections = team.sections || (team.section ? [team.section] : []);
+    const responsabile_ids = team.responsabile_ids || (team.responsabile_id ? [team.responsabile_id] : []);
     setForm({
       name: team.name,
       description: team.description || "",
       sections,
-      responsabile_id: team.responsabile_id || "none",
+      responsabile_ids,
       member_ids: team.member_ids || [],
     });
     setShowForm(true);
@@ -77,19 +77,25 @@ export default function AdminTeams() {
     setForm({ ...form, sections: sections.includes(value) ? sections.filter((s) => s !== value) : [...sections, value] });
   }
 
+  function toggleResponsabile(userId) {
+    const ids = form.responsabile_ids || [];
+    setForm({ ...form, responsabile_ids: ids.includes(userId) ? ids.filter((id) => id !== userId) : [...ids, userId] });
+  }
+
   async function handleSave() {
     setSaving(true);
     const selectedUsers = users.filter((u) => form.member_ids.includes(u.id));
     const member_names = selectedUsers.map((u) => userName(u));
-    const respId = form.responsabile_id === "none" ? null : form.responsabile_id;
-    const resp = users.find((u) => u.id === respId);
+    const selectedResp = users.filter((u) => form.responsabile_ids.includes(u.id));
+    const responsabile_nomi = selectedResp.map((u) => userName(u));
     const data = {
       name: form.name,
       description: form.description || null,
       sections: form.sections.length > 0 ? form.sections : null,
       section: form.sections[0] || null,
-      responsabile_id: respId,
-      responsabile_nome: resp ? userName(resp) : "",
+      responsabile_ids: form.responsabile_ids.length > 0 ? form.responsabile_ids : null,
+      responsabile_id: form.responsabile_ids[0] || null,
+      responsabile_nome: responsabile_nomi.join(", "),
       member_ids: form.member_ids.length > 0 ? form.member_ids : null,
       member_names: member_names.length > 0 ? member_names : null,
     };
@@ -113,6 +119,8 @@ export default function AdminTeams() {
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
     </div>
   );
+
+  const sortedUsers = [...users].sort((a, b) => userName(a).localeCompare(userName(b), "it"));
 
   return (
     <div className="space-y-6">
@@ -192,18 +200,19 @@ export default function AdminTeams() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Responsabile</Label>
-                  <Select value={form.responsabile_id} onValueChange={(v) => setForm({ ...form, responsabile_id: v })}>
-                    <SelectTrigger className="bg-white"><SelectValue placeholder="Seleziona..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nessuno</SelectItem>
-                      {users.map((u) => <SelectItem key={u.id} value={u.id}>{userName(u)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label>Responsabili (puoi selezionarne più di uno)</Label>
+                  <div className="space-y-2 border border-border rounded-lg p-3 max-h-28 overflow-y-auto bg-white">
+                    {sortedUsers.map((u) => (
+                      <div key={u.id} className="flex items-center gap-3">
+                        <Checkbox checked={(form.responsabile_ids || []).includes(u.id)} onCheckedChange={() => toggleResponsabile(u.id)} />
+                        <span className="text-sm">{userName(u)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Descrizione</Label>
-                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={5} className="bg-white" />
+                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} className="bg-white" />
                 </div>
               </div>
             </div>
@@ -211,7 +220,7 @@ export default function AdminTeams() {
             <div className="space-y-2">
               <Label>Membri</Label>
               <div className="grid grid-cols-2 gap-2 border border-border rounded-lg p-3 max-h-48 overflow-y-auto bg-white">
-                {users.map((user) => (
+                {sortedUsers.map((user) => (
                   <div key={user.id} className="flex items-center gap-3">
                     <Checkbox checked={(form.member_ids || []).includes(user.id)} onCheckedChange={() => toggleMember(user.id)} />
                     <div>

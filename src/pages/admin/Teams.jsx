@@ -33,7 +33,7 @@ export default function AdminTeams() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", sections: [], responsabile_id: "", member_ids: [] });
+  const [form, setForm] = useState({ name: "", description: "", sections: [], responsabile_id: "none", member_ids: [] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadData(); }, []);
@@ -50,19 +50,18 @@ export default function AdminTeams() {
 
   function openCreate() {
     setEditing(null);
-    setForm({ name: "", description: "", sections: [], responsabile_id: "", member_ids: [] });
+    setForm({ name: "", description: "", sections: [], responsabile_id: "none", member_ids: [] });
     setShowForm(true);
   }
 
   function openEdit(team) {
     setEditing(team);
-    // Supporta sia section (stringa) che sections (array) per retrocompatibilità
     const sections = team.sections || (team.section ? [team.section] : []);
     setForm({
       name: team.name,
       description: team.description || "",
       sections,
-      responsabile_id: team.responsabile_id || "",
+      responsabile_id: team.responsabile_id || "none",
       member_ids: team.member_ids || [],
     });
     setShowForm(true);
@@ -82,13 +81,14 @@ export default function AdminTeams() {
     setSaving(true);
     const selectedUsers = users.filter((u) => form.member_ids.includes(u.id));
     const member_names = selectedUsers.map((u) => userName(u));
-    const resp = users.find((u) => u.id === form.responsabile_id);
+    const respId = form.responsabile_id === "none" ? null : form.responsabile_id;
+    const resp = users.find((u) => u.id === respId);
     const data = {
       name: form.name,
       description: form.description,
       sections: form.sections,
-      section: form.sections[0] || null, // retrocompatibilità
-      responsabile_id: form.responsabile_id || null,
+      section: form.sections[0] || null,
+      responsabile_id: respId,
       responsabile_nome: resp ? userName(resp) : "",
       member_ids: form.member_ids,
       member_names,
@@ -150,7 +150,7 @@ export default function AdminTeams() {
                   ))}
                 </div>
                 {team.description && <p className="text-sm text-muted-foreground mb-3">{team.description}</p>}
-                {team.responsabile_nome && <p className="text-xs text-muted-foreground mb-2">👤 Responsabile: <strong>{team.responsabile_nome}</strong></p>}
+                {team.responsabile_nome && <p className="text-xs text-muted-foreground mb-2">👤 <strong>{team.responsabile_nome}</strong></p>}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {(team.member_names || []).length === 0 ? (
                     <span className="text-xs text-muted-foreground">Nessun membro</span>
@@ -176,47 +176,37 @@ export default function AdminTeams() {
               <Label>Nome Team *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-
             <div className="space-y-2">
               <Label>Moduli (puoi selezionarne più di uno)</Label>
               <div className="space-y-2 border border-border rounded-lg p-3 max-h-40 overflow-y-auto">
                 {SECTION_OPTIONS.map((s) => (
                   <div key={s.value} className="flex items-center gap-3">
-                    <Checkbox
-                      checked={(form.sections || []).includes(s.value)}
-                      onCheckedChange={() => toggleSection(s.value)}
-                    />
+                    <Checkbox checked={(form.sections || []).includes(s.value)} onCheckedChange={() => toggleSection(s.value)} />
                     <span className="text-sm">{s.label}</span>
                   </div>
                 ))}
               </div>
             </div>
-
             <div className="space-y-2">
               <Label>Responsabile</Label>
               <Select value={form.responsabile_id} onValueChange={(v) => setForm({ ...form, responsabile_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Seleziona responsabile..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuno</SelectItem>
+                  <SelectItem value="none">Nessuno</SelectItem>
                   {users.map((u) => <SelectItem key={u.id} value={u.id}>{userName(u)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Descrizione</Label>
               <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
-
             <div className="space-y-2">
               <Label>Membri</Label>
               <div className="space-y-2 max-h-48 overflow-y-auto border border-border rounded-lg p-3">
                 {users.map((user) => (
                   <div key={user.id} className="flex items-center gap-3">
-                    <Checkbox
-                      checked={(form.member_ids || []).includes(user.id)}
-                      onCheckedChange={() => toggleMember(user.id)}
-                    />
+                    <Checkbox checked={(form.member_ids || []).includes(user.id)} onCheckedChange={() => toggleMember(user.id)} />
                     <div>
                       <p className="text-sm font-medium">{userName(user)}</p>
                       {user.job_title && <p className="text-xs text-muted-foreground">{user.job_title}</p>}
@@ -225,14 +215,6 @@ export default function AdminTeams() {
                 ))}
               </div>
             </div>
-
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} disabled={saving || !form.name}>{saving ? "Salvataggio..." : "Salva"}</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Annulla</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+              <Button variant="outline" onClick=

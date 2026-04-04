@@ -21,7 +21,7 @@ const { error } = await login(email, password);
 if (error) {
   setError("Email o password non corretti. Riprova.");
 } else {
-  window.location.href = "/";
+  window.location.replace("/");
 }
     setLoading(false);
   }

@@ -217,4 +217,11 @@ export default function AdminTeams() {
             </div>
             <div className="flex gap-3 pt-2">
               <Button onClick={handleSave} disabled={saving || !form.name}>{saving ? "Salvataggio..." : "Salva"}</Button>
-              <Button variant="outline" onClick=
+              <Button variant="outline" onClick={() => setShowForm(false)}>Annulla</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

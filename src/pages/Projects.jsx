@@ -249,7 +249,7 @@ export default function Projects() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Nuovo Progetto</DialogTitle>
           </DialogHeader>

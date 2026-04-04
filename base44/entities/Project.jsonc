@@ -1,0 +1,113 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome Progetto"
+    },
+    "client": {
+      "type": "string",
+      "title": "Cliente"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descrizione"
+    },
+    "status": {
+      "type": "string",
+      "title": "Stato",
+      "enum": [
+        "in_corso",
+        "completato",
+        "in_pausa",
+        "da_pianificare"
+      ],
+      "enumNames": [
+        "In Corso",
+        "Completato",
+        "In Pausa",
+        "Da Pianificare"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "title": "Priorit\u00e0",
+      "enum": [
+        "alta",
+        "media",
+        "bassa"
+      ],
+      "enumNames": [
+        "Alta",
+        "Media",
+        "Bassa"
+      ]
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data Inizio"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data Fine"
+    },
+    "budget_hours": {
+      "type": "number",
+      "title": "Budget Ore"
+    },
+    "budget_euro": {
+      "type": "number",
+      "title": "Budget \u20ac"
+    },
+    "team_id": {
+      "type": "string",
+      "title": "Team ID"
+    },
+    "team_name": {
+      "type": "string",
+      "title": "Nome Team"
+    },
+    "manager_id": {
+      "type": "string",
+      "title": "Responsabile ID"
+    },
+    "manager_name": {
+      "type": "string",
+      "title": "Nome Responsabile"
+    },
+    "color": {
+      "type": "string",
+      "title": "Colore"
+    },
+    "aziende_ids": {
+      "type": "array",
+      "title": "Aziende ID",
+      "items": {
+        "type": "string"
+      }
+    },
+    "aziende_nomi": {
+      "type": "array",
+      "title": "Aziende",
+      "items": {
+        "type": "string"
+      }
+    },
+    "referente_id": {
+      "type": "string",
+      "title": "Referente ID"
+    },
+    "referente_nome": {
+      "type": "string",
+      "title": "Referente"
+    }
+  },
+  "required": [
+    "name",
+    "client",
+    "status"
+  ]
+}

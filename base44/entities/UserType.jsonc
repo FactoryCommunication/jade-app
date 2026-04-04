@@ -1,0 +1,13 @@
+{
+  "name": "UserType",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome Tipologia"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

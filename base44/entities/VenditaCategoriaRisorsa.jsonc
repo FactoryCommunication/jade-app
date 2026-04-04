@@ -1,0 +1,13 @@
+{
+  "name": "VenditaCategoriaRisorsa",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Categoria"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

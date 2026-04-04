@@ -1,0 +1,91 @@
+{
+  "name": "CRMAzienda",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Azienda"
+    },
+    "logo_url": {
+      "type": "string",
+      "title": "Logo Azienda"
+    },
+    "indirizzo": {
+      "type": "string",
+      "title": "Indirizzo"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "sito_internet": {
+      "type": "string",
+      "title": "Sito Internet"
+    },
+    "telefoni": {
+      "type": "array",
+      "title": "Telefoni",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "string",
+            "title": "Numero"
+          },
+          "etichetta": {
+            "type": "string",
+            "title": "Etichetta"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "array",
+      "title": "Lifecycle",
+      "items": {
+        "type": "string"
+      }
+    },
+    "partita_iva": {
+      "type": "string",
+      "title": "Partita IVA"
+    },
+    "codice_fiscale": {
+      "type": "string",
+      "title": "Codice Fiscale"
+    },
+    "codice_sdi": {
+      "type": "string",
+      "title": "Codice SDI"
+    },
+    "pec": {
+      "type": "string",
+      "title": "PEC"
+    },
+    "note_amministrative": {
+      "type": "string",
+      "title": "Note Amministrative"
+    },
+    "servizi_richiesti": {
+      "type": "array",
+      "title": "Servizi Richiesti",
+      "items": {
+        "type": "string"
+      }
+    },
+    "servizi_proposti": {
+      "type": "array",
+      "title": "Servizi Proposti",
+      "items": {
+        "type": "string"
+      }
+    },
+    "note": {
+      "type": "string",
+      "title": "Note"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

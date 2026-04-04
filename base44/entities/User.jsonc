@@ -1,0 +1,62 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "cognome": {
+      "type": "string",
+      "title": "Cognome"
+    },
+    "role": {
+      "type": "string",
+      "title": "Ruolo",
+      "enum": [
+        "admin",
+        "team_manager",
+        "user"
+      ],
+      "enumNames": [
+        "Amministratore",
+        "Responsabile Team",
+        "Utente"
+      ]
+    },
+    "job_title": {
+      "type": "string",
+      "title": "Mansione"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Telefono"
+    },
+    "hourly_rate": {
+      "type": "number",
+      "title": "Costo Orario (\u20ac)"
+    },
+    "user_type": {
+      "type": "string",
+      "title": "Tipologia Utente"
+    },
+    "working_days": {
+      "type": "array",
+      "title": "Giorni Lavorativi",
+      "items": {
+        "type": "string"
+      }
+    },
+    "working_hours": {
+      "type": "object",
+      "title": "Orari di Lavoro"
+    },
+    "vacation_days": {
+      "type": "array",
+      "title": "Ferie",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

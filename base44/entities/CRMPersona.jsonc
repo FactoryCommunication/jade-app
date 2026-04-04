@@ -1,0 +1,123 @@
+{
+  "name": "CRMPersona",
+  "type": "object",
+  "properties": {
+    "titolo": {
+      "type": "string",
+      "title": "Titolo"
+    },
+    "nome": {
+      "type": "string",
+      "title": "Nome"
+    },
+    "cognome": {
+      "type": "string",
+      "title": "Cognome"
+    },
+    "foto_url": {
+      "type": "string",
+      "title": "Foto Contatto"
+    },
+    "azienda_id": {
+      "type": "string",
+      "title": "Azienda ID"
+    },
+    "azienda_nome": {
+      "type": "string",
+      "title": "Azienda"
+    },
+    "ruolo": {
+      "type": "string",
+      "title": "Ruolo / Mansione"
+    },
+    "funzione_lavorativa": {
+      "type": "string",
+      "title": "Funzione Lavorativa"
+    },
+    "emails": {
+      "type": "array",
+      "title": "Email",
+      "items": {
+        "type": "object",
+        "properties": {
+          "indirizzo": {
+            "type": "string",
+            "title": "Indirizzo Email"
+          },
+          "etichetta": {
+            "type": "string",
+            "title": "Etichetta"
+          }
+        }
+      }
+    },
+    "telefoni": {
+      "type": "array",
+      "title": "Telefoni",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "string",
+            "title": "Numero"
+          },
+          "etichetta": {
+            "type": "string",
+            "title": "Etichetta"
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "array",
+      "title": "Lifecycle",
+      "items": {
+        "type": "string"
+      }
+    },
+    "partita_iva": {
+      "type": "string",
+      "title": "Partita IVA"
+    },
+    "codice_fiscale": {
+      "type": "string",
+      "title": "Codice Fiscale"
+    },
+    "note_amministrative": {
+      "type": "string",
+      "title": "Note Amministrative"
+    },
+    "indirizzo_residenza": {
+      "type": "string",
+      "title": "Residenza"
+    },
+    "indirizzo_domicilio": {
+      "type": "string",
+      "title": "Domicilio"
+    },
+    "linkedin": {
+      "type": "string",
+      "title": "LinkedIn"
+    },
+    "instagram": {
+      "type": "string",
+      "title": "Instagram"
+    },
+    "facebook": {
+      "type": "string",
+      "title": "Facebook"
+    },
+    "twitter": {
+      "type": "string",
+      "title": "Twitter / X"
+    },
+    "note": {
+      "type": "string",
+      "title": "Note"
+    }
+  },
+  "required": [
+    "nome",
+    "cognome"
+  ]
+}

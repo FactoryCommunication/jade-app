@@ -1,0 +1,82 @@
+{
+  "name": "VenditaOpportunita",
+  "type": "object",
+  "properties": {
+    "titolo": {
+      "type": "string",
+      "title": "Titolo"
+    },
+    "numero": {
+      "type": "string",
+      "title": "Numero"
+    },
+    "data": {
+      "type": "string",
+      "format": "date",
+      "title": "Data"
+    },
+    "azienda_id": {
+      "type": "string",
+      "title": "Azienda ID"
+    },
+    "azienda_nome": {
+      "type": "string",
+      "title": "Azienda"
+    },
+    "referente_id": {
+      "type": "string",
+      "title": "Referente ID"
+    },
+    "referente_nome": {
+      "type": "string",
+      "title": "Referente"
+    },
+    "descrizione": {
+      "type": "string",
+      "title": "Descrizione Richiesta (HTML)"
+    },
+    "budget_euro": {
+      "type": "number",
+      "title": "Budget (\u20ac netto IVA)"
+    },
+    "valore_preventivo": {
+      "type": "number",
+      "title": "Valore Preventivo Approvato (\u20ac)"
+    },
+    "stato_id": {
+      "type": "string",
+      "title": "Stato ID"
+    },
+    "stato_nome": {
+      "type": "string",
+      "title": "Stato"
+    },
+    "responsabile_id": {
+      "type": "string",
+      "title": "Responsabile ID"
+    },
+    "responsabile_nome": {
+      "type": "string",
+      "title": "Responsabile"
+    },
+    "collaboratori": {
+      "type": "array",
+      "title": "Collaboratori",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "user_nome": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "titolo",
+    "stato_id"
+  ]
+}

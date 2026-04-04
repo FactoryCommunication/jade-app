@@ -1,0 +1,21 @@
+{
+  "name": "VenditaStatoPreventivo",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Stato"
+    },
+    "colore": {
+      "type": "string",
+      "title": "Colore (hex)"
+    },
+    "ordine": {
+      "type": "number",
+      "title": "Ordine"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

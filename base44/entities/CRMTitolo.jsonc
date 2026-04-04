@@ -1,0 +1,13 @@
+{
+  "name": "CRMTitolo",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Titolo"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

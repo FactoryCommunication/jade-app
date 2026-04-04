@@ -1,0 +1,127 @@
+{
+  "name": "VenditaPreventivo",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "title": "Numero Preventivo"
+    },
+    "data": {
+      "type": "string",
+      "format": "date",
+      "title": "Data"
+    },
+    "opportunita_id": {
+      "type": "string",
+      "title": "Opportunit\u00e0 ID"
+    },
+    "azienda_id": {
+      "type": "string",
+      "title": "Azienda ID"
+    },
+    "azienda_nome": {
+      "type": "string",
+      "title": "Azienda"
+    },
+    "referente_id": {
+      "type": "string",
+      "title": "Referente ID"
+    },
+    "referente_nome": {
+      "type": "string",
+      "title": "Referente"
+    },
+    "responsabile_id": {
+      "type": "string",
+      "title": "Responsabile ID"
+    },
+    "responsabile_nome": {
+      "type": "string",
+      "title": "Responsabile"
+    },
+    "stato_id": {
+      "type": "string",
+      "title": "Stato ID"
+    },
+    "stato_nome": {
+      "type": "string",
+      "title": "Stato"
+    },
+    "modalita_pagamento": {
+      "type": "string",
+      "title": "Modalit\u00e0 di Pagamento"
+    },
+    "righe": {
+      "type": "array",
+      "title": "Righe Preventivo",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risorsa_id": {
+            "type": "string"
+          },
+          "codice": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "quantita": {
+            "type": "number"
+          },
+          "prezzo_listino": {
+            "type": "number"
+          },
+          "sconto_percentuale": {
+            "type": "number"
+          },
+          "sconto_valore": {
+            "type": "number"
+          },
+          "prezzo_scontato": {
+            "type": "number"
+          },
+          "totale_listino": {
+            "type": "number"
+          },
+          "totale_scontato": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "totale_lordo": {
+      "type": "number",
+      "title": "Totale Lordo (\u20ac)"
+    },
+    "totale_scontato": {
+      "type": "number",
+      "title": "Totale Scontato (\u20ac)"
+    },
+    "iva_percentuale": {
+      "type": "number",
+      "title": "IVA (%)",
+      "default": 22
+    },
+    "totale_iva": {
+      "type": "number",
+      "title": "IVA (\u20ac)"
+    },
+    "totale_con_iva": {
+      "type": "number",
+      "title": "Totale con IVA (\u20ac)"
+    },
+    "informazioni_amministrative": {
+      "type": "string",
+      "title": "Informazioni Amministrative (HTML)"
+    },
+    "note": {
+      "type": "string",
+      "title": "Note"
+    }
+  },
+  "required": [
+    "numero",
+    "stato_id"
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "name": "Task",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Titolo"
+    },
+    "description": {
+      "type": "string",
+      "title": "Descrizione (HTML)"
+    },
+    "tipo_task": {
+      "type": "string",
+      "title": "Tipo Task",
+      "enum": [
+        "attivita",
+        "meeting"
+      ],
+      "enumNames": [
+        "Attivit\u00e0",
+        "Meeting"
+      ]
+    },
+    "modalita": {
+      "type": "string",
+      "title": "Modalit\u00e0",
+      "enum": [
+        "singolo",
+        "multiplo"
+      ],
+      "enumNames": [
+        "Singolo",
+        "Multiplo"
+      ]
+    },
+    "parent_task_id": {
+      "type": "string",
+      "title": "Task Padre ID"
+    },
+    "parent_task_title": {
+      "type": "string",
+      "title": "Task Padre"
+    },
+    "project_id": {
+      "type": "string",
+      "title": "Progetto ID"
+    },
+    "project_name": {
+      "type": "string",
+      "title": "Nome Progetto"
+    },
+    "assignee_id": {
+      "type": "string",
+      "title": "Assegnato a (ID)"
+    },
+    "assignee_name": {
+      "type": "string",
+      "title": "Assegnato a"
+    },
+    "estimated_hours": {
+      "type": "number",
+      "title": "Ore Stimate"
+    },
+    "participants": {
+      "type": "array",
+      "title": "Partecipanti (Meeting)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "user_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "task_type_id": {
+      "type": "string",
+      "title": "Tipo Lavoro ID"
+    },
+    "task_type_name": {
+      "type": "string",
+      "title": "Tipo Lavoro"
+    },
+    "da_fatturare": {
+      "type": "string",
+      "title": "Da Fatturare",
+      "enum": [
+        "no_compreso",
+        "no_non_previsto",
+        "si_extra"
+      ],
+      "enumNames": [
+        "NO compreso nel progetto",
+        "NO anche se non previsto",
+        "SI attivit\u00e0 Extra"
+      ]
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data"
+    },
+    "event_start_time": {
+      "type": "string",
+      "title": "Ora Inizio"
+    },
+    "event_end_time": {
+      "type": "string",
+      "title": "Ora Fine"
+    },
+    "recurrence": {
+      "type": "string",
+      "title": "Ripetizione",
+      "enum": [
+        "giornaliera",
+        "settimanale",
+        "mensile",
+        "annuale"
+      ],
+      "enumNames": [
+        "Giornaliera",
+        "Settimanale",
+        "Mensile",
+        "Annuale"
+      ]
+    },
+    "recurrence_start_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data Inizio Ripetizione"
+    },
+    "recurrence_end_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data Fine Ripetizione"
+    },
+    "status": {
+      "type": "string",
+      "title": "Stato",
+      "enum": [
+        "da_fare",
+        "in_corso",
+        "in_revisione",
+        "completato"
+      ],
+      "enumNames": [
+        "Da Fare",
+        "In Corso",
+        "In Revisione",
+        "Completato"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "title": "Priorit\u00e0",
+      "enum": [
+        "alta",
+        "media",
+        "bassa"
+      ],
+      "enumNames": [
+        "Alta",
+        "Media",
+        "Bassa"
+      ]
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Scadenza"
+    }
+  },
+  "required": [
+    "title",
+    "project_id",
+    "status",
+    "tipo_task"
+  ]
+}

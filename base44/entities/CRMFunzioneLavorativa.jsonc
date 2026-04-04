@@ -1,0 +1,13 @@
+{
+  "name": "CRMFunzioneLavorativa",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Funzione Lavorativa"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

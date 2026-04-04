@@ -1,0 +1,64 @@
+{
+  "name": "VenditaRisorsa",
+  "type": "object",
+  "properties": {
+    "categoria_id": {
+      "type": "string",
+      "title": "Categoria ID"
+    },
+    "categoria_nome": {
+      "type": "string",
+      "title": "Categoria"
+    },
+    "tipologia": {
+      "type": "string",
+      "title": "Tipologia",
+      "enum": [
+        "abbonamenti",
+        "prodotti",
+        "servizi"
+      ],
+      "enumNames": [
+        "Abbonamenti",
+        "Prodotti",
+        "Servizi IT"
+      ]
+    },
+    "nome": {
+      "type": "string",
+      "title": "Nome Risorsa"
+    },
+    "descrizione": {
+      "type": "string",
+      "title": "Descrizione (HTML)"
+    },
+    "costo_listino": {
+      "type": "number",
+      "title": "Costo di Listino (\u20ac)"
+    },
+    "costo_scontato": {
+      "type": "number",
+      "title": "Costo Scontato (\u20ac)"
+    },
+    "prezzo_listino": {
+      "type": "number",
+      "title": "Prezzo di Listino (\u20ac)"
+    },
+    "magazzino": {
+      "type": "number",
+      "title": "Magazzino (scorte)"
+    },
+    "fornitore_id": {
+      "type": "string",
+      "title": "Fornitore ID (CRM)"
+    },
+    "fornitore_nome": {
+      "type": "string",
+      "title": "Fornitore"
+    }
+  },
+  "required": [
+    "nome",
+    "tipologia"
+  ]
+}

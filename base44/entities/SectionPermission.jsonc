@@ -1,0 +1,25 @@
+{
+  "name": "SectionPermission",
+  "type": "object",
+  "properties": {
+    "section_key": {
+      "type": "string",
+      "title": "Chiave Sezione"
+    },
+    "section_label": {
+      "type": "string",
+      "title": "Nome Sezione"
+    },
+    "allowed_roles": {
+      "type": "array",
+      "title": "Ruoli abilitati",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "section_key",
+    "allowed_roles"
+  ]
+}

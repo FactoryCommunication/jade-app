@@ -1,0 +1,49 @@
+{
+  "name": "TimeEntry",
+  "type": "object",
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "title": "Progetto ID"
+    },
+    "project_name": {
+      "type": "string",
+      "title": "Nome Progetto"
+    },
+    "task_id": {
+      "type": "string",
+      "title": "Task ID"
+    },
+    "task_title": {
+      "type": "string",
+      "title": "Titolo Task"
+    },
+    "collaborator": {
+      "type": "string",
+      "title": "Collaboratore"
+    },
+    "collaborator_id": {
+      "type": "string",
+      "title": "Collaboratore ID"
+    },
+    "hours": {
+      "type": "number",
+      "title": "Ore"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Note"
+    }
+  },
+  "required": [
+    "project_id",
+    "collaborator",
+    "hours",
+    "date"
+  ]
+}

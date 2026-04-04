@@ -1,0 +1,48 @@
+{
+  "name": "TaskComment",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "title": "Task ID"
+    },
+    "task_title": {
+      "type": "string",
+      "title": "Titolo Task"
+    },
+    "project_id": {
+      "type": "string",
+      "title": "Progetto ID"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Utente ID"
+    },
+    "user_name": {
+      "type": "string",
+      "title": "Utente"
+    },
+    "content": {
+      "type": "string",
+      "title": "Commento"
+    },
+    "mentioned_user_ids": {
+      "type": "array",
+      "title": "Utenti menzionati (ID)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mentioned_user_emails": {
+      "type": "array",
+      "title": "Email utenti menzionati",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "task_id",
+    "content"
+  ]
+}

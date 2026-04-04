@@ -1,0 +1,65 @@
+{
+  "name": "Team",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome Team"
+    },
+    "section": {
+      "type": "string",
+      "title": "Sezione",
+      "enum": [
+        "pm",
+        "crm",
+        "servizi",
+        "seo",
+        "amministrazione",
+        "finanza",
+        "wiki",
+        "vendite",
+        "admin"
+      ],
+      "enumNames": [
+        "Project Management",
+        "CRM",
+        "Servizi",
+        "SEO",
+        "Amministrazione",
+        "Finanza",
+        "Wiki",
+        "Vendite",
+        "Admin"
+      ]
+    },
+    "description": {
+      "type": "string",
+      "title": "Descrizione"
+    },
+    "responsabile_id": {
+      "type": "string",
+      "title": "Responsabile ID"
+    },
+    "responsabile_nome": {
+      "type": "string",
+      "title": "Responsabile"
+    },
+    "member_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "ID Membri"
+    },
+    "member_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "title": "Nomi Membri"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "WikiCategoria",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Categoria"
+    },
+    "colore": {
+      "type": "string",
+      "title": "Colore (hex)"
+    },
+    "ordine": {
+      "type": "number",
+      "title": "Ordine"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

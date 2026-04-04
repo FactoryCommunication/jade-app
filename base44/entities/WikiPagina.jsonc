@@ -1,0 +1,57 @@
+{
+  "name": "WikiPagina",
+  "type": "object",
+  "properties": {
+    "titolo": {
+      "type": "string",
+      "title": "Titolo"
+    },
+    "contenuto": {
+      "type": "string",
+      "title": "Contenuto (HTML)"
+    },
+    "categoria_id": {
+      "type": "string",
+      "title": "Categoria ID"
+    },
+    "categoria_nome": {
+      "type": "string",
+      "title": "Categoria"
+    },
+    "progetto_id": {
+      "type": "string",
+      "title": "Progetto ID"
+    },
+    "progetto_nome": {
+      "type": "string",
+      "title": "Progetto Collegato"
+    },
+    "visibilita": {
+      "type": "string",
+      "title": "Visibilit\u00e0",
+      "enum": [
+        "pubblico",
+        "riservato"
+      ],
+      "enumNames": [
+        "Pubblico",
+        "Riservato"
+      ]
+    },
+    "autore_nome": {
+      "type": "string",
+      "title": "Autore"
+    },
+    "tags": {
+      "type": "array",
+      "title": "Tags",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "titolo",
+    "visibilita"
+  ]
+}

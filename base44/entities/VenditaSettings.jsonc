@@ -1,0 +1,17 @@
+{
+  "name": "VenditaSettings",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "title": "Chiave"
+    },
+    "value": {
+      "type": "string",
+      "title": "Valore"
+    }
+  },
+  "required": [
+    "key"
+  ]
+}

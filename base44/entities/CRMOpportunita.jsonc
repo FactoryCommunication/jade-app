@@ -1,0 +1,72 @@
+{
+  "name": "CRMOpportunita",
+  "type": "object",
+  "properties": {
+    "titolo": {
+      "type": "string",
+      "title": "Titolo"
+    },
+    "azienda_id": {
+      "type": "string",
+      "title": "Azienda ID"
+    },
+    "azienda_nome": {
+      "type": "string",
+      "title": "Azienda"
+    },
+    "persona_id": {
+      "type": "string",
+      "title": "Contatto ID"
+    },
+    "persona_nome": {
+      "type": "string",
+      "title": "Contatto"
+    },
+    "valore": {
+      "type": "number",
+      "title": "Valore (\u20ac)"
+    },
+    "stato": {
+      "type": "string",
+      "title": "Stato",
+      "enum": [
+        "nuova",
+        "in_trattativa",
+        "proposta_inviata",
+        "vinta",
+        "persa"
+      ],
+      "enumNames": [
+        "Nuova",
+        "In Trattativa",
+        "Proposta Inviata",
+        "Vinta",
+        "Persa"
+      ]
+    },
+    "probabilita": {
+      "type": "number",
+      "title": "Probabilit\u00e0 (%)"
+    },
+    "data_chiusura": {
+      "type": "string",
+      "format": "date",
+      "title": "Data Chiusura Prevista"
+    },
+    "servizi": {
+      "type": "array",
+      "title": "Servizi",
+      "items": {
+        "type": "string"
+      }
+    },
+    "note": {
+      "type": "string",
+      "title": "Note"
+    }
+  },
+  "required": [
+    "titolo",
+    "stato"
+  ]
+}

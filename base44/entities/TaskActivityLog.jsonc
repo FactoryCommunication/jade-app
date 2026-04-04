@@ -1,0 +1,40 @@
+{
+  "name": "TaskActivityLog",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "title": "Task ID"
+    },
+    "task_title": {
+      "type": "string",
+      "title": "Titolo Task"
+    },
+    "user_id": {
+      "type": "string",
+      "title": "Utente ID"
+    },
+    "user_name": {
+      "type": "string",
+      "title": "Utente"
+    },
+    "action": {
+      "type": "string",
+      "title": "Azione"
+    },
+    "details": {
+      "type": "string",
+      "title": "Dettagli"
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Data e Ora"
+    }
+  },
+  "required": [
+    "task_id",
+    "action",
+    "date"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "ChecklistItem",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "title": "Task ID"
+    },
+    "text": {
+      "type": "string",
+      "title": "Testo"
+    },
+    "completed": {
+      "type": "boolean",
+      "title": "Completato"
+    },
+    "order": {
+      "type": "number",
+      "title": "Ordine"
+    }
+  },
+  "required": [
+    "task_id",
+    "text"
+  ]
+}

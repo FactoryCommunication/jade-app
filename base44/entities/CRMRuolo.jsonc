@@ -1,0 +1,13 @@
+{
+  "name": "CRMRuolo",
+  "type": "object",
+  "properties": {
+    "nome": {
+      "type": "string",
+      "title": "Nome Ruolo / Mansione"
+    }
+  },
+  "required": [
+    "nome"
+  ]
+}

@@ -92,3 +92,5 @@
     transition: box-shadow 0.2s ease;
   }
 }
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }

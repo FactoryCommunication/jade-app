@@ -6,6 +6,7 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [effectiveRole, setEffectiveRole] = useState(null); // 'admin' | 'responsabile' | 'user'
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingPublicSettings] = useState(false);
@@ -13,8 +14,20 @@ export const AuthProvider = ({ children }) => {
 
   const loadProfile = async (userId) => {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      setProfile(data);
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      setProfile(p);
+
+      // Calcola ruolo effettivo
+      if (p?.role === 'admin') {
+        setEffectiveRole('admin');
+      } else {
+        // Controlla se l'utente è responsabile di almeno un team
+        const { data: teams } = await supabase.from('teams').select('responsabile_ids');
+        const isResponsabile = (teams || []).some(
+          (t) => Array.isArray(t.responsabile_ids) && t.responsabile_ids.includes(userId)
+        );
+        setEffectiveRole(isResponsabile ? 'responsabile' : 'user');
+      }
     } catch (error) {
       console.error('Errore caricamento profilo:', error);
     }
@@ -39,6 +52,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           setUser(null);
           setProfile(null);
+          setEffectiveRole(null);
           setIsAuthenticated(false);
         }
         setIsLoadingAuth(false);
@@ -62,6 +76,7 @@ export const AuthProvider = ({ children }) => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setEffectiveRole(null);
     setIsAuthenticated(false);
   };
 
@@ -69,10 +84,17 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
+  // Helper utilizzabili in tutta l'app tramite useAuth()
+  const isAdmin = effectiveRole === 'admin';
+  const isResponsabile = effectiveRole === 'responsabile' || effectiveRole === 'admin';
+
   return (
     <AuthContext.Provider value={{
       user,
       profile,
+      effectiveRole,
+      isAdmin,
+      isResponsabile,
       isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,

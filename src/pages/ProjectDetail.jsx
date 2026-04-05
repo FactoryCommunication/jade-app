@@ -14,7 +14,10 @@ import TaskForm from "../components/TaskForm";
 import { useAuth } from "@/lib/AuthContext";
 import moment from "moment";
 
-function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, onComment, canEditTask }) {
+function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, onComment, canEditTask, subTasks = [] }) {
+  const subHours = subTasks.reduce((s, t) => s + (t.estimated_hours || 0), 0);
+  const ownHours = task.estimated_hours || task.estimated_hours_total || 0;
+
   return (
     <div className={`p-4 flex items-center gap-3 hover:bg-secondary/30 transition-colors ${isSubTask ? "pl-10 bg-secondary/10" : ""}`}>
       {isSubTask && <span className="text-muted-foreground text-xs mr-1">↳</span>}
@@ -29,8 +32,13 @@ function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, on
           ) : task.assignee_name || task.assignee ? (
             <span className="text-xs text-muted-foreground">👤 {task.assignee_name || task.assignee}</span>
           ) : null}
-          {(task.estimated_hours || task.estimated_hours_total) > 0 && (
-            <span className="text-xs text-muted-foreground">⏱ {task.estimated_hours || task.estimated_hours_total}h stimate</span>
+          {ownHours > 0 && (
+            <span className="text-xs text-muted-foreground">⏱ {ownHours}h stimate</span>
+          )}
+          {!isSubTask && subTasks.length > 0 && (
+            <span className="text-xs text-primary font-medium">
+              📋 {subTasks.length} subtask · {subHours}h totali
+            </span>
           )}
           {task.due_date && <span className="text-xs text-muted-foreground">• {moment(task.due_date).format("DD MMM")}</span>}
         </div>
@@ -391,9 +399,27 @@ export default function ProjectDetail() {
           <div className="divide-y divide-border">
             {rootTasks.map((task) => (
               <>
-                <TaskRow key={task.id} task={task} onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} canEditTask={canEditTask(task)} />
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  subTasks={subTasksMap[task.id] || []}
+                  onStatusChange={handleUpdateTaskStatus}
+                  onEdit={setEditingTask}
+                  onDelete={setTaskToDelete}
+                  onComment={setCommentTask}
+                  canEditTask={canEditTask(task)}
+                />
                 {(subTasksMap[task.id] || []).map((sub) => (
-                  <TaskRow key={sub.id} task={sub} isSubTask onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} canEditTask={canEditTask(sub)} />
+                  <TaskRow
+                    key={sub.id}
+                    task={sub}
+                    isSubTask
+                    onStatusChange={handleUpdateTaskStatus}
+                    onEdit={setEditingTask}
+                    onDelete={setTaskToDelete}
+                    onComment={setCommentTask}
+                    canEditTask={canEditTask(sub)}
+                  />
                 ))}
               </>
             ))}
@@ -473,7 +499,14 @@ export default function ProjectDetail() {
       <Dialog open={!!editingTask} onOpenChange={(o) => !o && setEditingTask(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Modifica Task</DialogTitle></DialogHeader>
-          <TaskForm initial={editingTask || {}} projects={projects} onSubmit={handleUpdateTask} onCancel={() => setEditingTask(null)} loading={saving} />
+          <TaskForm
+            initial={editingTask || {}}
+            projects={projects}
+            parentTasks={rootTasks.filter((t) => t.id !== editingTask?.id)}
+            onSubmit={handleUpdateTask}
+            onCancel={() => setEditingTask(null)}
+            loading={saving}
+          />
         </DialogContent>
       </Dialog>
     </div>

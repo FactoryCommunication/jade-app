@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import EmptyState from "@/components/EmptyState";
 import AziendaForm from "@/components/crm/AziendaForm";
+import { useAuth } from "@/lib/AuthContext";
 
 const LIFECYCLE_DEFAULT = ["Lead", "Prospect", "Customer", "Ex Customer", "Ambassador Partner", "Non in Target", "Non Affidabile"];
 
@@ -27,6 +28,9 @@ const STATUS_COLORS = { in_corso: "bg-blue-100 text-blue-700", completato: "bg-g
 
 export default function Aziende() {
   const navigate = useNavigate();
+  const { isAdmin, isTeamMember } = useAuth();
+  const canEdit = isTeamMember("CRM");
+
   const [aziende, setAziende] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -34,7 +38,6 @@ export default function Aziende() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [aziendaToDelete, setAziendaToDelete] = useState(null);
   const [deleteCode, setDeleteCode] = useState("");
   const confirmCode = aziendaToDelete ? aziendaToDelete.nome.substring(0, 4).toUpperCase() + "-DEL" : "";
@@ -49,7 +52,6 @@ export default function Aziende() {
 
   useEffect(() => {
     loadData();
-    supabase.auth.getUser().then(r => r.data?.user).then((u) => setIsAdmin(u?.role === "admin")).catch(() => {});
     supabase.from("task_types").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []).then(setTaskTypes).catch(() => {});
     supabase.from("crm_persone").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []).then((persone) => {
       const counts = {};
@@ -64,7 +66,7 @@ export default function Aziende() {
       const [allProjects, allEntries, allPersone] = await Promise.all([
         supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
         supabase.from("time_entries").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-        supabase.from("crm_persone").select("*").eq("azienda_id", selected.id ).order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
+        supabase.from("crm_persone").select("*").eq("azienda_id", selected.id).order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
       ]);
       const related = allProjects.filter((p) => (p.aziende_ids || []).includes(selected.id));
       setAziendaProjects(related);
@@ -124,9 +126,11 @@ export default function Aziende() {
           <Button variant="outline" className={`gap-2 ${sortAlpha ? "border-primary text-primary" : ""}`} onClick={() => setSortAlpha((v) => !v)}>
             <ArrowDownAZ className="h-4 w-4" /> A→Z
           </Button>
-          <Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2">
-            <Plus className="h-4 w-4" />Nuova Azienda
-          </Button>
+          {canEdit && (
+            <Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2">
+              <Plus className="h-4 w-4" />Nuova Azienda
+            </Button>
+          )}
         </div>
       </div>
 
@@ -137,7 +141,7 @@ export default function Aziende() {
 
       {filtered.length === 0 ? (
         <EmptyState icon={Building2} title="Nessuna azienda" description="Aggiungi la prima azienda al CRM."
-          action={<Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2"><Plus className="h-4 w-4" />Nuova Azienda</Button>} />
+          action={canEdit ? <Button onClick={() => { setEditing(null); setShowForm(true); }} className="gap-2"><Plus className="h-4 w-4" />Nuova Azienda</Button> : null} />
       ) : (
         <div className="bg-card rounded-xl border border-border divide-y divide-border">
           {filtered.map((az) => (
@@ -158,15 +162,18 @@ export default function Aziende() {
                   {personeCounts[az.id] > 0 && <span className="text-xs text-muted-foreground">👤 {personeCounts[az.id]} contatti</span>}
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditing(az); setShowForm(true); }}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setAziendaToDelete(az); setDeleteCode(""); }}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </div>
+              {canEdit && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEditing(az); setShowForm(true); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setAziendaToDelete(az); setDeleteCode(""); }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              )}
+              {!canEdit && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
             </div>
           ))}
         </div>
@@ -230,9 +237,11 @@ export default function Aziende() {
                             )}
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setEditingPersona(p)}>
-                          <Pencil className="h-3.5 w-3.5" /> Modifica
-                        </Button>
+                        {canEdit && (
+                          <Button size="sm" variant="outline" className="gap-1.5 shrink-0" onClick={() => setEditingPersona(p)}>
+                            <Pencil className="h-3.5 w-3.5" /> Modifica
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -300,7 +309,7 @@ export default function Aziende() {
                             className="gap-1.5 shrink-0"
                             onClick={() => { setSelected(null); navigate(`/projects/${proj.id}`); }}
                           >
-                            <ExternalLink className="h-3.5 w-3.5" /> Modifica
+                            <ExternalLink className="h-3.5 w-3.5" /> Apri
                           </Button>
                         </div>
                       );
@@ -310,7 +319,9 @@ export default function Aziende() {
               </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={() => { setEditing(selected); setSelected(null); setShowForm(true); }}>Modifica</Button>
+              {canEdit && (
+                <Button onClick={() => { setEditing(selected); setSelected(null); setShowForm(true); }}>Modifica</Button>
+              )}
               <Button variant="outline" onClick={() => setSelected(null)}>Chiudi</Button>
             </div>
           </DialogContent>
@@ -329,8 +340,7 @@ export default function Aziende() {
                 await supabase.from("crm_persone").update(data).eq("id", editingPersona.id).select().single().then(r => r.data);
                 setSavingPersona(false);
                 setEditingPersona(null);
-                // Refresh contacts
-                const refreshed = await supabase.from("crm_persone").select("*").eq("azienda_id", selected.id ).order("created_at", { ascending: false }).limit(200).then(r => r.data || []);
+                const refreshed = await supabase.from("crm_persone").select("*").eq("azienda_id", selected.id).order("created_at", { ascending: false }).limit(200).then(r => r.data || []);
                 setAziendaPersone(refreshed);
               }}
               onCancel={() => setEditingPersona(null)}

@@ -6,7 +6,8 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [effectiveRole, setEffectiveRole] = useState(null); // 'admin' | 'responsabile' | 'user'
+  const [effectiveRole, setEffectiveRole] = useState(null);
+  const [userTeams, setUserTeams] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [isLoadingPublicSettings] = useState(false);
@@ -17,17 +18,27 @@ export const AuthProvider = ({ children }) => {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).single();
       setProfile(p);
 
+      const { data: teams } = await supabase.from('teams').select('*');
+      const allTeams = teams || [];
+
       // Calcola ruolo effettivo
       if (p?.role === 'admin') {
         setEffectiveRole('admin');
       } else {
-        // Controlla se l'utente è responsabile di almeno un team
-        const { data: teams } = await supabase.from('teams').select('responsabile_ids');
-        const isResponsabile = (teams || []).some(
+        const isResponsabile = allTeams.some(
           (t) => Array.isArray(t.responsabile_ids) && t.responsabile_ids.includes(userId)
         );
         setEffectiveRole(isResponsabile ? 'responsabile' : 'user');
       }
+
+      // Salva i team a cui appartiene l'utente (come membro o responsabile)
+      const myTeams = allTeams.filter(
+        (t) =>
+          (Array.isArray(t.member_ids) && t.member_ids.includes(userId)) ||
+          (Array.isArray(t.responsabile_ids) && t.responsabile_ids.includes(userId))
+      );
+      setUserTeams(myTeams);
+
     } catch (error) {
       console.error('Errore caricamento profilo:', error);
     }
@@ -53,6 +64,7 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setProfile(null);
           setEffectiveRole(null);
+          setUserTeams([]);
           setIsAuthenticated(false);
         }
         setIsLoadingAuth(false);
@@ -77,6 +89,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setProfile(null);
     setEffectiveRole(null);
+    setUserTeams([]);
     setIsAuthenticated(false);
   };
 
@@ -84,9 +97,17 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/login';
   };
 
-  // Helper utilizzabili in tutta l'app tramite useAuth()
   const isAdmin = effectiveRole === 'admin';
   const isResponsabile = effectiveRole === 'responsabile' || effectiveRole === 'admin';
+
+  // Restituisce true se l'utente è membro o responsabile del team indicato
+  // Gli admin hanno sempre accesso a tutto
+  function isTeamMember(teamName) {
+    if (isAdmin) return true;
+    return userTeams.some(
+      (t) => t.name?.toLowerCase() === teamName.toLowerCase()
+    );
+  }
 
   return (
     <AuthContext.Provider value={{
@@ -95,6 +116,8 @@ export const AuthProvider = ({ children }) => {
       effectiveRole,
       isAdmin,
       isResponsabile,
+      isTeamMember,
+      userTeams,
       isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,

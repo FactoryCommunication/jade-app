@@ -144,7 +144,7 @@ export default function Calendar() {
     setTaskTypes(tt);
     setUsers(u);
     setAziende(az);
-    if (settings.length > 0) {
+    if (settings?.value) {
       try { setColors({ ...DEFAULT_COLORS, ...JSON.parse(settings[0].value) }); } catch {}
     }
     setLoading(false);

@@ -20,6 +20,14 @@ const RECURRENCE_OPTIONS = [
   { value: "annuale", label: "Annuale" },
 ];
 
+function calcDeltaHours(start, end) {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  const mins = (eh * 60 + em) - (sh * 60 + sm);
+  return mins > 0 ? mins / 60 : null;
+}
+
 export default function TaskForm({ initial = {}, projects: initialProjects = [], parentTasks = [], onSubmit, onCancel, loading }) {
   const [projects, setProjects] = useState(initialProjects);
   const [taskTypes, setTaskTypes] = useState([]);
@@ -55,6 +63,17 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
   const [participants, setParticipants] = useState(
     initial.participants && initial.participants.length > 0 ? initial.participants : []
   );
+
+  // Calcola delta ore da ora inizio/fine
+  const deltaHours = calcDeltaHours(form.event_start_time, form.event_end_time);
+  const hoursFromDelta = deltaHours !== null;
+
+  // Aggiorna estimated_hours automaticamente quando cambia il delta
+  useEffect(() => {
+    if (hoursFromDelta) {
+      setForm((f) => ({ ...f, estimated_hours: deltaHours.toFixed(2) }));
+    }
+  }, [form.event_start_time, form.event_end_time]);
 
   useEffect(() => {
     Promise.all([
@@ -94,17 +113,8 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     }
   }
 
-  function getMeetingHours() {
-    if (!form.event_start_time || !form.event_end_time) return 0;
-    const [sh, sm] = form.event_start_time.split(":").map(Number);
-    const [eh, em] = form.event_end_time.split(":").map(Number);
-    const mins = (eh * 60 + em) - (sh * 60 + sm);
-    return mins > 0 ? mins / 60 : 0;
-  }
-
   const isAttivita = form.tipo_task === "attivita";
   const isMultiplo = form.modalita === "multiplo";
-  const meetingHours = getMeetingHours();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -112,6 +122,12 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     const taskType = taskTypes.find((t) => t.id === form.task_type_id);
     const assigneeUser = users.find((u) => u.id === form.assignee_id);
     const parentTask = parentTasks.find((t) => t.id === form.parent_task_id);
+
+    // Ore stimate: usa il delta se disponibile, altrimenti il valore manuale
+    const finalHours = hoursFromDelta
+      ? deltaHours
+      : (form.estimated_hours ? Number(form.estimated_hours) : null);
+
     onSubmit({
       ...form,
       project_id: form.project_id === "none" ? null : form.project_id,
@@ -127,9 +143,7 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
       task_type_name: taskType?.name || "",
       assignee_name: isAttivita ? userName(assigneeUser || {}) : "",
       participants: isAttivita ? [] : participants,
-      estimated_hours: isAttivita
-        ? (form.estimated_hours ? Number(form.estimated_hours) : null)
-        : meetingHours || null,
+      estimated_hours: finalHours,
       parent_task_title: parentTask?.title || "",
     });
   };
@@ -290,23 +304,57 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Ore Stimate</Label>
-              <Input type="number" step="0.5" min="0" className="bg-white" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} placeholder="Es. 4" />
+              <Label className="flex items-center gap-2">
+                Ore Stimate
+                {hoursFromDelta && (
+                  <span className="text-xs text-emerald-600 font-normal">calcolate automaticamente</span>
+                )}
+              </Label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0"
+                className={`${hoursFromDelta ? "bg-muted text-muted-foreground" : "bg-white"}`}
+                value={hoursFromDelta ? deltaHours.toFixed(2) : form.estimated_hours}
+                onChange={(e) => !hoursFromDelta && setForm({ ...form, estimated_hours: e.target.value })}
+                readOnly={hoursFromDelta}
+                placeholder="Es. 4"
+              />
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <Label>Partecipanti Meeting</Label>
-            <div className="border border-border rounded-lg p-3 bg-white flex flex-wrap gap-2">
-              {users.map((u) => {
-                const sel = participants.some((p) => p.user_id === u.id);
-                return (
-                  <button key={u.id} type="button" onClick={() => toggleParticipant(u)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${sel ? "bg-primary text-primary-foreground border-primary" : "bg-white text-muted-foreground border-border hover:border-primary"}`}>
-                    {userName(u)}
-                  </button>
-                );
-              })}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Partecipanti Meeting</Label>
+              <div className="border border-border rounded-lg p-3 bg-white flex flex-wrap gap-2">
+                {users.map((u) => {
+                  const sel = participants.some((p) => p.user_id === u.id);
+                  return (
+                    <button key={u.id} type="button" onClick={() => toggleParticipant(u)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${sel ? "bg-primary text-primary-foreground border-primary" : "bg-white text-muted-foreground border-border hover:border-primary"}`}>
+                      {userName(u)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                Ore Stimate
+                {hoursFromDelta && (
+                  <span className="text-xs text-emerald-600 font-normal">calcolate automaticamente</span>
+                )}
+              </Label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0"
+                className={`${hoursFromDelta ? "bg-muted text-muted-foreground" : "bg-white"}`}
+                value={hoursFromDelta ? deltaHours.toFixed(2) : form.estimated_hours}
+                onChange={(e) => !hoursFromDelta && setForm({ ...form, estimated_hours: e.target.value })}
+                readOnly={hoursFromDelta}
+                placeholder="Es. 4"
+              />
             </div>
           </div>
         )}

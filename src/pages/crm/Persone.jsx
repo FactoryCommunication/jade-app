@@ -6,8 +6,12 @@ import { Search, Plus, Pencil, Trash2, UserCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PersonaForm from "@/components/crm/PersonaForm";
 import EmptyState from "@/components/EmptyState";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Persone() {
+  const { isTeamMember } = useAuth();
+  const canEdit = isTeamMember("CRM");
+
   const [persone, setPersone] = useState([]);
   const [aziende, setAziende] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,9 +85,11 @@ export default function Persone() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Persone</h1>
           <p className="text-muted-foreground mt-1">{persone.length} contatti nel CRM</p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" /> Nuovo Contatto
-        </Button>
+        {canEdit && (
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" /> Nuovo Contatto
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -101,7 +107,7 @@ export default function Persone() {
           icon={UserCircle}
           title="Nessun contatto"
           description={persone.length === 0 ? "Aggiungi il primo contatto al CRM." : "Nessun contatto corrisponde alla ricerca."}
-          action={persone.length === 0 ? <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Nuovo Contatto</Button> : null}
+          action={persone.length === 0 && canEdit ? <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" />Nuovo Contatto</Button> : null}
         />
       ) : (
         <div className="bg-card rounded-xl border border-border divide-y divide-border">
@@ -137,14 +143,16 @@ export default function Persone() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(persona)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(persona.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+              {canEdit && (
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(persona)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(persona.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>

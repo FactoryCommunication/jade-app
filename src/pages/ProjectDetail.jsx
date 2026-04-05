@@ -6,15 +6,15 @@ import TaskCommentSection from "../components/TaskCommentSection";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import StatusBadge from "../components/StatusBadge";
 import ProjectForm from "../components/ProjectForm";
 import TaskForm from "../components/TaskForm";
-
+import { useAuth } from "@/lib/AuthContext";
 import moment from "moment";
 
-function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, onComment }) {
+function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, onComment, canEditTask }) {
   return (
     <div className={`p-4 flex items-center gap-3 hover:bg-secondary/30 transition-colors ${isSubTask ? "pl-10 bg-secondary/10" : ""}`}>
       {isSubTask && <span className="text-muted-foreground text-xs mr-1">↳</span>}
@@ -35,26 +35,37 @@ function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, on
           {task.due_date && <span className="text-xs text-muted-foreground">• {moment(task.due_date).format("DD MMM")}</span>}
         </div>
       </div>
-      <select
-        value={task.status}
-        onChange={(e) => onStatusChange(task.id, e.target.value)}
-        className="text-xs bg-secondary border border-border rounded-md px-2 py-1 text-foreground"
-      >
-        <option value="da_fare">Da Fare</option>
-        <option value="in_corso">In Corso</option>
-        <option value="in_revisione">In Revisione</option>
-        <option value="completato">Completato</option>
-      </select>
+      {canEditTask && (
+        <select
+          value={task.status}
+          onChange={(e) => onStatusChange(task.id, e.target.value)}
+          className="text-xs bg-secondary border border-border rounded-md px-2 py-1 text-foreground"
+        >
+          <option value="da_fare">Da Fare</option>
+          <option value="in_corso">In Corso</option>
+          <option value="in_revisione">In Revisione</option>
+          <option value="completato">Completato</option>
+        </select>
+      )}
+      {!canEditTask && (
+        <span className="text-xs bg-secondary border border-border rounded-md px-2 py-1 text-muted-foreground">
+          {task.status === "da_fare" ? "Da Fare" : task.status === "in_corso" ? "In Corso" : task.status === "in_revisione" ? "In Revisione" : "Completato"}
+        </span>
+      )}
       {task.priority && <StatusBadge type="priority" value={task.priority} />}
       <Button variant="ghost" size="icon" className="h-7 w-7" title="Commenti" onClick={() => onComment(task)}>
         <MessageSquare className="h-3.5 w-3.5" />
       </Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(task)}>
-        <Pencil className="h-3.5 w-3.5" />
-      </Button>
-      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(task)}>
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {canEditTask && (
+        <>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(task)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onDelete(task)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -62,16 +73,16 @@ function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, on
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isAdmin, isTeamMember, user } = useAuth();
+  const canEditProject = isTeamMember("Gestione Progetti");
+
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
-
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
-
   const [editingTask, setEditingTask] = useState(null);
   const [saving, setSaving] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState(null);
@@ -88,21 +99,26 @@ export default function ProjectDetail() {
 
   async function loadData() {
     try {
-      const [projArr, allProjects, allTasks, allUsers, me] = await Promise.all([
-        supabase.from("projects").select("*").limit(200).then(r => r.data || []),
+      const [projArr, allProjects, allTasks, allUsers] = await Promise.all([
+        supabase.from("projects").select("*").eq("id", id).limit(1).then(r => r.data || []),
         supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-        supabase.from("tasks").select("*").eq("project_id", id ).order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
+        supabase.from("tasks").select("*").eq("project_id", id).order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
         supabase.from("profiles").select("*").order("created_at", { ascending: false }).limit(200).then(r => r.data || []),
-        supabase.auth.getUser().then(r => r.data?.user).catch(() => null),
       ]);
       setProject(projArr[0] || null);
       setProjects(allProjects);
       setTasks(allTasks);
       setUsers(allUsers);
-      setIsAdmin(me?.role === "admin");
     } finally {
       setLoading(false);
     }
+  }
+
+  // Un utente può modificare un task se è membro del team Gestione Progetti
+  // oppure se il task è assegnato a lui
+  function canEditTask(task) {
+    if (canEditProject) return true;
+    return task.assignee_id === user?.id;
   }
 
   async function handleUpdate(data) {
@@ -140,10 +156,6 @@ export default function ProjectDetail() {
     loadData();
   }
 
-
-
-
-
   async function handleUpdateTaskStatus(taskId, status) {
     await supabase.from("tasks").update({ status }).eq("id", taskId).select().single().then(r => r.data);
     loadData();
@@ -154,11 +166,11 @@ export default function ProjectDetail() {
     const byCollaborator = {};
     tasks.forEach((task) => {
       const hours = task.estimated_hours || task.estimated_hours_total || 0;
-      const user = users.find((u) => u.id === task.assignee_id);
-      const rate = user?.hourly_rate || 0;
+      const u = users.find((u) => u.id === task.assignee_id);
+      const rate = u?.hourly_rate || 0;
       const cost = hours * rate;
       total += cost;
-      const name = user?.full_name || user?.email || task.assignee_name || task.assignee || "Non assegnato";
+      const name = u?.full_name || u?.email || task.assignee_name || task.assignee || "Non assegnato";
       if (!byCollaborator[name]) byCollaborator[name] = { hours: 0, cost: 0, rate };
       byCollaborator[name].hours += hours;
       byCollaborator[name].cost += cost;
@@ -183,7 +195,6 @@ export default function ProjectDetail() {
     );
   }
 
-  // Gerarchia task
   const rootTasks = tasks.filter((t) => !t.parent_task_id);
   const subTasksMap = tasks.reduce((acc, t) => {
     if (t.parent_task_id) {
@@ -193,7 +204,6 @@ export default function ProjectDetail() {
     return acc;
   }, {});
 
-  // Ore = somma ore stimate attività + ore meeting (durata * partecipanti)
   const totalHours = tasks.reduce((s, t) => {
     if (t.tipo_task === "meeting" || t.tipo_task === "evento") {
       if (t.event_start_time && t.event_end_time) {
@@ -207,6 +217,7 @@ export default function ProjectDetail() {
     }
     return s + (t.estimated_hours || t.estimated_hours_total || 0);
   }, 0);
+
   const completedTasks = tasks.filter((t) => t.status === "completato").length;
   const taskProgress = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
   const hoursProgress = project.budget_hours ? Math.min(100, Math.round((totalHours / project.budget_hours) * 100)) : 0;
@@ -247,14 +258,16 @@ export default function ProjectDetail() {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowEdit(true)} className="gap-1.5">
-              <Pencil className="h-3.5 w-3.5" /> Modifica
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { setDeleteCode(""); setShowDeleteProject(true); }}>
-              <Trash2 className="h-3.5 w-3.5" /> Elimina
-            </Button>
-          </div>
+          {canEditProject && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowEdit(true)} className="gap-1.5">
+                <Pencil className="h-3.5 w-3.5" /> Modifica
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { setDeleteCode(""); setShowDeleteProject(true); }}>
+                <Trash2 className="h-3.5 w-3.5" /> Elimina
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Progress + Budget */}
@@ -326,9 +339,11 @@ export default function ProjectDetail() {
       <div className="bg-card rounded-xl border border-border">
         <div className="p-5 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Task ({tasks.length})</h2>
-          <Button size="sm" onClick={() => setShowTaskForm(true)} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Aggiungi Task
-          </Button>
+          {canEditProject && (
+            <Button size="sm" onClick={() => setShowTaskForm(true)} className="gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Aggiungi Task
+            </Button>
+          )}
         </div>
         {tasks.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">Nessun task ancora</div>
@@ -336,17 +351,15 @@ export default function ProjectDetail() {
           <div className="divide-y divide-border">
             {rootTasks.map((task) => (
               <>
-                <TaskRow key={task.id} task={task} onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} />
+                <TaskRow key={task.id} task={task} onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} canEditTask={canEditTask(task)} />
                 {(subTasksMap[task.id] || []).map((sub) => (
-                  <TaskRow key={sub.id} task={sub} isSubTask onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} />
+                  <TaskRow key={sub.id} task={sub} isSubTask onStatusChange={handleUpdateTaskStatus} onEdit={setEditingTask} onDelete={setTaskToDelete} onComment={setCommentTask} canEditTask={canEditTask(sub)} />
                 ))}
               </>
             ))}
           </div>
         )}
       </div>
-
-
 
       {/* Pannello commenti task */}
       {commentTask && (
@@ -393,21 +406,11 @@ export default function ProjectDetail() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-1 pb-2">
-            <Input
-              autoFocus
-              placeholder={`Digita ${confirmCode}`}
-              value={deleteCode}
-              onChange={(e) => setDeleteCode(e.target.value.toUpperCase())}
-              className="font-mono tracking-widest"
-            />
+            <Input autoFocus placeholder={`Digita ${confirmCode}`} value={deleteCode} onChange={(e) => setDeleteCode(e.target.value.toUpperCase())} className="font-mono tracking-widest" />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeleteCode("")}>Annulla</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleteCode !== confirmCode}
-              className="bg-destructive text-destructive-foreground disabled:opacity-40"
-            >Elimina Progetto</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={deleteCode !== confirmCode} className="bg-destructive text-destructive-foreground disabled:opacity-40">Elimina Progetto</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -433,8 +436,6 @@ export default function ProjectDetail() {
           <TaskForm initial={editingTask || {}} projects={projects} onSubmit={handleUpdateTask} onCancel={() => setEditingTask(null)} loading={saving} />
         </DialogContent>
       </Dialog>
-
-
     </div>
   );
 }

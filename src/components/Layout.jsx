@@ -14,9 +14,8 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
   const { t, lang, setLang } = useLanguage();
-  const { profile } = useAuth();
+  const { profile, isAdmin } = useAuth();
   const location = useLocation();
-  const isAdmin = profile?.role === "admin";
 
   useEffect(() => {
     supabase.from("app_settings").select("*").then(({ data }) => {

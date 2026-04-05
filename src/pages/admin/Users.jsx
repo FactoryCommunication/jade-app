@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import EmptyState from "../../components/EmptyState";
+import { useAuth } from "@/lib/AuthContext";
 import moment from "moment";
 import "moment/locale/it";
 
@@ -26,6 +27,7 @@ const DAYS = [
 const DEFAULT_USER_TYPES = ["Interno", "Esterno", "Partner", "Freelance"];
 
 export default function AdminUsers() {
+  const { isAdmin } = useAuth();
   const [users, setUsers] = useState([]);
   const [userTypes, setUserTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +167,6 @@ export default function AdminUsers() {
     if (!inviteEmail.trim()) return;
     setInviting(true);
     setInviteMsg("");
-    // Crea utente tramite Supabase Admin API
     try {
       const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/auth/v1/admin/users`, {
         method: "POST",
@@ -178,7 +179,7 @@ export default function AdminUsers() {
       });
       if (res.ok) {
         const data = await res.json();
-        await supabase.from("profiles").insert({ id: data.id, nome: "", cognome: "", role: inviteRole });
+        await supabase.from("profiles").insert({ id: data.id, nome: "", cognome: "", role: isAdmin ? inviteRole : "user" });
         setInviteMsg(`Utente creato! Password temporanea: Jade2024!`);
         setInviteEmail("");
         loadData();
@@ -238,17 +239,19 @@ export default function AdminUsers() {
               <Label>Email *</Label>
               <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="es. mario@azienda.it" autoFocus />
             </div>
-            <div className="space-y-2">
-              <Label>Ruolo</Label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Utente</SelectItem>
-                  <SelectItem value="team_manager">Responsabile Team</SelectItem>
-                  <SelectItem value="admin">Amministratore</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {isAdmin && (
+              <div className="space-y-2">
+                <Label>Ruolo</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Utente</SelectItem>
+                    <SelectItem value="team_manager">Responsabile Team</SelectItem>
+                    <SelectItem value="admin">Amministratore</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {inviteMsg && <p className={`text-sm font-medium ${inviteMsg.includes("creato") ? "text-emerald-600" : "text-destructive"}`}>{inviteMsg}</p>}
             <div className="flex gap-2 pt-1">
               <Button onClick={handleInviteUser} disabled={inviting || !inviteEmail.trim()} className="flex-1 gap-2">
@@ -274,12 +277,14 @@ export default function AdminUsers() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-foreground">{user.nome} {user.cognome}</p>
                 {user.job_title && <p className="text-sm text-muted-foreground">{user.job_title}</p>}
-                {user.hourly_rate && <span className="text-xs text-emerald-700">€{user.hourly_rate}/h</span>}
+                {isAdmin && user.hourly_rate && <span className="text-xs text-emerald-700">€{user.hourly_rate}/h</span>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                  {user.role === "admin" ? "Admin" : user.role === "team_manager" ? "Manager" : "Utente"}
-                </Badge>
+                {isAdmin && (
+                  <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                    {user.role === "admin" ? "Admin" : user.role === "team_manager" ? "Manager" : "Utente"}
+                  </Badge>
+                )}
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(user)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
@@ -306,17 +311,19 @@ export default function AdminUsers() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Ruolo</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">Utente</SelectItem>
-                    <SelectItem value="team_manager">Responsabile Team</SelectItem>
-                    <SelectItem value="admin">Amministratore</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isAdmin && (
+                <div className="space-y-2">
+                  <Label>Ruolo</Label>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Utente</SelectItem>
+                      <SelectItem value="team_manager">Responsabile Team</SelectItem>
+                      <SelectItem value="admin">Amministratore</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Mansione</Label>
                 <Input value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
@@ -327,31 +334,35 @@ export default function AdminUsers() {
                 <Label>Telefono</Label>
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
+              {isAdmin && (
+                <div className="space-y-2">
+                  <Label>Costo Orario (€)</Label>
+                  <Input type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+                </div>
+              )}
+            </div>
+            {isAdmin && (
               <div className="space-y-2">
-                <Label>Costo Orario (€)</Label>
-                <Input type="number" value={form.hourly_rate} onChange={(e) => setForm({ ...form, hourly_rate: e.target.value })} />
+                <Label>Tipologia Utente</Label>
+                <div className="flex gap-2">
+                  <Select value={form.user_type} onValueChange={(v) => setForm({ ...form, user_type: v })}>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleziona tipologia" /></SelectTrigger>
+                    <SelectContent>
+                      {allUserTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {addingType ? (
+                    <div className="flex gap-1">
+                      <Input value={newUserType} onChange={(e) => setNewUserType(e.target.value)} placeholder="Nuova voce..." className="w-36" onKeyDown={(e) => e.key === "Enter" && handleAddUserType()} />
+                      <Button size="icon" variant="outline" onClick={handleAddUserType}><Check className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => setAddingType(false)}><X className="h-4 w-4" /></Button>
+                    </div>
+                  ) : (
+                    <Button variant="outline" size="icon" onClick={() => setAddingType(true)}><Plus className="h-4 w-4" /></Button>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipologia Utente</Label>
-              <div className="flex gap-2">
-                <Select value={form.user_type} onValueChange={(v) => setForm({ ...form, user_type: v })}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Seleziona tipologia" /></SelectTrigger>
-                  <SelectContent>
-                    {allUserTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {addingType ? (
-                  <div className="flex gap-1">
-                    <Input value={newUserType} onChange={(e) => setNewUserType(e.target.value)} placeholder="Nuova voce..." className="w-36" onKeyDown={(e) => e.key === "Enter" && handleAddUserType()} />
-                    <Button size="icon" variant="outline" onClick={handleAddUserType}><Check className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" onClick={() => setAddingType(false)}><X className="h-4 w-4" /></Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" size="icon" onClick={() => setAddingType(true)}><Plus className="h-4 w-4" /></Button>
-                )}
-              </div>
-            </div>
+            )}
             <div className="space-y-3">
               <Label>Giorni e Orari di Lavoro</Label>
               <div className="space-y-2 border border-border rounded-lg p-3">

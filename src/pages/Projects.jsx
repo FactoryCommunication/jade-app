@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import StatusBadge from "../components/StatusBadge";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 import moment from "moment";
 
 function cleanProject(data) {
@@ -36,12 +37,14 @@ function cleanProject(data) {
 }
 
 export default function Projects() {
+  const { isAdmin, isTeamMember } = useAuth();
+  const canEdit = isTeamMember("Gestione Progetti");
+
   const [projects, setProjects] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState("list");
@@ -75,16 +78,7 @@ export default function Projects() {
     });
   }
 
-  useEffect(() => {
-    loadData();
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        supabase.from("profiles").select("role").eq("id", user.id).single().then(({ data }) => {
-          setIsAdmin(data?.role === "admin");
-        });
-      }
-    });
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     const [{ data: p }, { data: te }, { data: t }, { data: u }] = await Promise.all([
@@ -103,10 +97,7 @@ export default function Projects() {
   async function handleCreate(data) {
     setSaving(true);
     const cleaned = cleanProject(data);
-    console.log("📦 DATI INVIATI:", JSON.stringify(cleaned, null, 2));
     const { data: result, error } = await supabase.from("projects").insert(cleaned).select().single();
-    console.log("✅ RISULTATO:", result);
-    console.log("❌ ERRORE:", error);
     if (!error) {
       setShowCreate(false);
       loadData();
@@ -161,9 +152,11 @@ export default function Projects() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Progetti</h1>
           <p className="text-muted-foreground mt-1">{filteredProjects.length} di {projects.length} progetti</p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="gap-2">
-          <Plus className="h-4 w-4" />Nuovo Progetto
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="h-4 w-4" />Nuovo Progetto
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -214,7 +207,7 @@ export default function Projects() {
       {filteredProjects.length === 0 ? (
         <EmptyState icon={FolderKanban} title="Nessun progetto"
           description={projects.length === 0 ? "Crea il tuo primo progetto." : "Nessun progetto corrisponde ai filtri."}
-          action={projects.length === 0 ? <Button onClick={() => setShowCreate(true)} className="gap-2"><Plus className="h-4 w-4" />Crea Progetto</Button> : null} />
+          action={projects.length === 0 && canEdit ? <Button onClick={() => setShowCreate(true)} className="gap-2"><Plus className="h-4 w-4" />Crea Progetto</Button> : null} />
       ) : viewMode === "card" ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredProjects.map((project) => (

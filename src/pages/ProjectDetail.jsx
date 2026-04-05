@@ -109,13 +109,13 @@ export default function ProjectDetail() {
       setProjects(allProjects);
       setTasks(allTasks);
       setUsers(allUsers);
+    } catch (err) {
+      console.error("❌ ERRORE CARICAMENTO:", err);
     } finally {
       setLoading(false);
     }
   }
 
-  // Un utente può modificare un task se è membro del team Gestione Progetti
-  // oppure se il task è assegnato a lui
   function canEditTask(task) {
     if (canEditProject) return true;
     return task.assignee_id === user?.id;
@@ -123,42 +123,82 @@ export default function ProjectDetail() {
 
   async function handleUpdate(data) {
     setSaving(true);
-    await supabase.from("projects").update(data).eq("id", id).select().single().then(r => r.data);
-    setSaving(false);
-    setShowEdit(false);
-    loadData();
+    try {
+      const { error } = await supabase.from("projects").update(data).eq("id", id).select().single();
+      if (error) console.error("❌ ERRORE MODIFICA PROGETTO:", error);
+      else { setShowEdit(false); loadData(); }
+    } catch (err) {
+      console.error("❌ ECCEZIONE MODIFICA PROGETTO:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
-    await supabase.from("projects").delete().eq("id", id);
-    navigate("/projects");
+    try {
+      await supabase.from("projects").delete().eq("id", id);
+      navigate("/projects");
+    } catch (err) {
+      console.error("❌ ERRORE ELIMINA PROGETTO:", err);
+    }
   }
 
   async function handleDeleteTask(taskId) {
-    await supabase.from("tasks").delete().eq("id", taskId);
-    setTaskToDelete(null);
-    loadData();
+    try {
+      await supabase.from("tasks").delete().eq("id", taskId);
+      setTaskToDelete(null);
+      loadData();
+    } catch (err) {
+      console.error("❌ ERRORE ELIMINA TASK:", err);
+    }
   }
 
   async function handleCreateTask(data) {
     setSaving(true);
-    await supabase.from("tasks").insert(data).select().single().then(r => r.data);
-    setSaving(false);
-    setShowTaskForm(false);
-    loadData();
+    try {
+      const { error } = await supabase.from("tasks").insert(data).select().single();
+      if (error) {
+        console.error("❌ ERRORE CREA TASK:", error);
+        alert(`Errore: ${error.message}`);
+      } else {
+        setShowTaskForm(false);
+        loadData();
+      }
+    } catch (err) {
+      console.error("❌ ECCEZIONE CREA TASK:", err);
+      alert(`Errore inaspettato: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleUpdateTask(data) {
     setSaving(true);
-    await supabase.from("tasks").update(data).eq("id", editingTask.id).select().single().then(r => r.data);
-    setSaving(false);
-    setEditingTask(null);
-    loadData();
+    try {
+      const { error } = await supabase.from("tasks").update(data).eq("id", editingTask.id).select().single();
+      if (error) {
+        console.error("❌ ERRORE MODIFICA TASK:", error);
+        alert(`Errore: ${error.message}`);
+      } else {
+        setEditingTask(null);
+        loadData();
+      }
+    } catch (err) {
+      console.error("❌ ECCEZIONE MODIFICA TASK:", err);
+      alert(`Errore inaspettato: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleUpdateTaskStatus(taskId, status) {
-    await supabase.from("tasks").update({ status }).eq("id", taskId).select().single().then(r => r.data);
-    loadData();
+    try {
+      const { error } = await supabase.from("tasks").update({ status }).eq("id", taskId).select().single();
+      if (error) console.error("❌ ERRORE AGGIORNA STATUS:", error);
+      else loadData();
+    } catch (err) {
+      console.error("❌ ECCEZIONE AGGIORNA STATUS:", err);
+    }
   }
 
   function calculateCosts() {

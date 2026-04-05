@@ -14,8 +14,8 @@ import "moment/locale/it";
 moment.locale("it");
 
 const DEFAULT_COLORS = { attivita: "#6366f1", meeting: "#0ea5e9", evento: "#10b981", evento_ripetuto: "#f59e0b" };
-const HOURS = Array.from({ length: 24 }, (_, i) => i); // 00:00 - 23:00
-const WORK_HOUR_START = 7; // scroll default to 07:00
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const WORK_HOUR_START = 7;
 const SLOT_HEIGHT = 60;
 
 function getTaskColor(task, colors) {
@@ -88,7 +88,6 @@ export default function Calendar() {
   const [colors, setColors] = useState(DEFAULT_COLORS);
   const [loading, setLoading] = useState(true);
 
-  // Filters
   const [filterCliente, setFilterCliente] = useState("all");
   const [filterProject, setFilterProject] = useState("all");
   const [filterAssignee, setFilterAssignee] = useState("all");
@@ -98,26 +97,28 @@ export default function Calendar() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
-  // New task creation via drag
   const [showNewForm, setShowNewForm] = useState(false);
   const [newTaskInitial, setNewTaskInitial] = useState({});
 
-  // Task actions
   const [selectedTask, setSelectedTask] = useState(null);
   const [taskAction, setTaskAction] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Grid scroll
   const gridScrollRef = useRef(null);
-
-  // Drag state
   const dragRef = useRef(null);
   const didDragRef = useRef(false);
   const [dragging, setDragging] = useState(null);
 
+  // Drag & drop stato
+  const taskDragRef = useRef(null);
+  const [draggingTask, setDraggingTask] = useState(null);
+
+  // Resize stato
+  const resizeRef = useRef(null);
+  const [resizing, setResizing] = useState(null);
+
   useEffect(() => { loadData(); }, []);
 
-  // Scroll to work hours on load
   useEffect(() => {
     if (!loading && gridScrollRef.current) {
       gridScrollRef.current.scrollTop = WORK_HOUR_START * SLOT_HEIGHT;
@@ -145,7 +146,7 @@ export default function Calendar() {
     setUsers(u);
     setAziende(az);
     if (settings?.value) {
-      try { setColors({ ...DEFAULT_COLORS, ...JSON.parse(settings[0].value) }); } catch {}
+      try { setColors({ ...DEFAULT_COLORS, ...JSON.parse(settings.value) }); } catch {}
     }
     setLoading(false);
   }
@@ -171,6 +172,7 @@ export default function Calendar() {
 
   const expanded = expandTasksForWeek(filteredTasks, weekDays);
 
+  // ─── CREA TASK TRASCINANDO SUL CALENDARIO ───
   function getMinutesFromY(y, containerTop) {
     const relY = y - containerTop;
     const rawMin = (relY / SLOT_HEIGHT) * 60 + HOURS[0] * 60;
@@ -179,8 +181,9 @@ export default function Calendar() {
 
   function handleMouseDown(e, dateStr) {
     if (e.button !== 0) return;
+    if (taskDragRef.current || resizeRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const startMin = getMinutesFromY(e.clientY, rect.top);
+    const startMin = getMinutesFromY(e.clientY, rect.top + gridScrollRef.current.scrollTop - gridScrollRef.current.getBoundingClientRect().top);
     dragRef.current = { dateStr, startMin, endMin: startMin + 60, rect, startY: e.clientY };
     didDragRef.current = false;
     setDragging({ dateStr, startMin, endMin: startMin + 60 });
@@ -188,15 +191,88 @@ export default function Calendar() {
   }
 
   function handleMouseMove(e) {
+    // Resize task
+    if (resizeRef.current) {
+      const { task, type, startY, origStartMins, origEndMins, colRect } = resizeRef.current;
+      const deltaY = e.clientY - startY;
+      const deltaMins = Math.round((deltaY / SLOT_HEIGHT) * 60 / 15) * 15;
+      let newStartMins = origStartMins;
+      let newEndMins = origEndMins;
+      if (type === "top") newStartMins = Math.max(0, Math.min(origStartMins + deltaMins, origEndMins - 15));
+      if (type === "bottom") newEndMins = Math.max(origStartMins + 15, Math.min(origEndMins + deltaMins, 23 * 60 + 45));
+      setResizing({ task, type, newStartMins, newEndMins });
+      return;
+    }
+
+    // Drag task
+    if (taskDragRef.current) {
+      const { task, startY, origDateStr, origStartMins, origEndMins, duration } = taskDragRef.current;
+      const deltaY = e.clientY - startY;
+      const deltaMins = Math.round((deltaY / SLOT_HEIGHT) * 60 / 15) * 15;
+      const newStartMins = Math.max(0, Math.min(origStartMins + deltaMins, 23 * 60 - duration));
+      const newEndMins = newStartMins + duration;
+
+      // Trova la colonna del giorno sotto il cursore
+      let newDateStr = origDateStr;
+      weekDays.forEach((d) => {
+        const col = document.querySelector(`[data-date="${d}"]`);
+        if (col) {
+          const rect = col.getBoundingClientRect();
+          if (e.clientX >= rect.left && e.clientX <= rect.right) newDateStr = d;
+        }
+      });
+
+      taskDragRef.current.newDateStr = newDateStr;
+      taskDragRef.current.newStartMins = newStartMins;
+      taskDragRef.current.newEndMins = newEndMins;
+      setDraggingTask({ task, newDateStr, newStartMins, newEndMins });
+      return;
+    }
+
+    // Crea task trascinando
     if (!dragRef.current) return;
     const { rect, startMin, dateStr, startY } = dragRef.current;
     if (Math.abs(e.clientY - startY) > 8) didDragRef.current = true;
-    const endMin = Math.max(startMin + 15, getMinutesFromY(e.clientY, rect.top));
+    const scrollTop = gridScrollRef.current?.scrollTop || 0;
+    const gridTop = gridScrollRef.current?.getBoundingClientRect().top || 0;
+    const relY = e.clientY - gridTop + scrollTop;
+    const rawMin = (relY / SLOT_HEIGHT) * 60;
+    const endMin = Math.max(startMin + 15, Math.round(rawMin / 15) * 15);
     dragRef.current.endMin = endMin;
     setDragging({ dateStr, startMin, endMin });
   }
 
-  function handleMouseUp() {
+  async function handleMouseUp(e) {
+    // Fine resize
+    if (resizeRef.current && resizing) {
+      const { task } = resizeRef.current;
+      const { newStartMins, newEndMins } = resizing;
+      resizeRef.current = null;
+      setResizing(null);
+      await supabase.from("tasks").update({
+        event_start_time: minutesToTime(newStartMins),
+        event_end_time: minutesToTime(newEndMins),
+        estimated_hours: (newEndMins - newStartMins) / 60,
+      }).eq("id", task.id);
+      loadData();
+      return;
+    }
+
+    // Fine drag task
+    if (taskDragRef.current && draggingTask) {
+      const { task, newDateStr, newStartMins, newEndMins } = taskDragRef.current;
+      taskDragRef.current = null;
+      setDraggingTask(null);
+      await supabase.from("tasks").update({
+        event_date: newDateStr,
+        event_start_time: minutesToTime(newStartMins),
+        event_end_time: minutesToTime(newEndMins),
+      }).eq("id", task.id);
+      loadData();
+      return;
+    }
+
+    // Fine crea task trascinando
     if (!dragRef.current) return;
     const { dateStr, startMin, endMin } = dragRef.current;
     dragRef.current = null;
@@ -208,11 +284,12 @@ export default function Calendar() {
   }
 
   function openNewTask(dateStr, startTime, endTime) {
-    setNewTaskInitial({ event_date: dateStr, event_start_time: startTime, event_end_time: endTime, tipo_task: "evento", status: "da_fare" });
+    setNewTaskInitial({ event_date: dateStr, event_start_time: startTime, event_end_time: endTime, tipo_task: "attivita", status: "da_fare" });
     setShowNewForm(true);
   }
 
   function handleTaskClick(task, e) {
+    if (taskDragRef.current || resizeRef.current) return;
     e.stopPropagation();
     e.preventDefault();
     setSelectedTask(task);
@@ -242,10 +319,20 @@ export default function Calendar() {
 
   async function handleCreateNewTask(data) {
     setSaving(true);
-    await supabase.from("tasks").insert(data).select().single().then(r => r.data);
-    setSaving(false);
-    setShowNewForm(false);
-    loadData();
+    try {
+      const { error } = await supabase.from("tasks").insert(data).select().single();
+      if (error) {
+        console.error("❌ ERRORE CREA TASK CALENDARIO:", error);
+        alert(`Errore: ${error.message}`);
+      } else {
+        setShowNewForm(false);
+        loadData();
+      }
+    } catch (err) {
+      console.error("❌ ECCEZIONE CREA TASK CALENDARIO:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function getTaskVisualState(task) {
@@ -254,40 +341,70 @@ export default function Calendar() {
   }
 
   function renderTaskPill(task, i) {
-    const startMins = timeToMinutes(task.event_start_time || "09:00");
-    const baseEndMins = timeToMinutes(task.event_end_time || "10:00");
+    const isDragged = draggingTask?.task?.id === task.id;
+    const isResized = resizing?.task?.id === task.id;
+
+    let startMins = timeToMinutes(task.event_start_time || "09:00");
+    let endMins = timeToMinutes(task.event_end_time || "10:00");
+
+    if (isDragged && draggingTask) { startMins = draggingTask.newStartMins; endMins = draggingTask.newEndMins; }
+    if (isResized && resizing) { startMins = resizing.newStartMins; endMins = resizing.newEndMins; }
+
     const gridStart = HOURS[0] * 60;
-
-    const { isCompleted, isTimeMet, isOvertime, loggedHours } = getTaskVisualState(task);
-
-    const displayEndMins = baseEndMins;
-
+    const { isCompleted, isTimeMet } = getTaskVisualState(task);
     const top = ((startMins - gridStart) / 60) * SLOT_HEIGHT;
-    const height = Math.max(24, ((displayEndMins - startMins) / 60) * SLOT_HEIGHT);
+    const height = Math.max(24, ((endMins - startMins) / 60) * SLOT_HEIGHT);
     const baseColor = getTaskColor(task, colors);
-
-    // Faded/lighter when completed or time met
     const isFaded = isCompleted || isTimeMet;
-    const bgStyle = isFaded
-      ? hexToRgba(baseColor, 0.35)
-      : baseColor;
+    const bgStyle = isFaded ? hexToRgba(baseColor, 0.35) : baseColor;
     const borderStyle = isFaded ? `2px solid ${baseColor}` : "none";
 
     return (
       <div
         key={`${task.id}-${i}`}
-        className="absolute left-0.5 right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 shadow-sm group hover:brightness-110 transition-all"
-        style={{
-          top,
-          height,
-          backgroundColor: bgStyle,
-          border: borderStyle,
-          color: isFaded ? baseColor : "#ffffff",
+        className={`absolute left-0.5 right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden z-10 shadow-sm group transition-all ${isDragged ? "opacity-70 cursor-grabbing z-30" : "cursor-grab hover:brightness-110"}`}
+        style={{ top, height, backgroundColor: bgStyle, border: borderStyle, color: isFaded ? baseColor : "#ffffff" }}
+        title={`${task.title} — trascina per spostare`}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          // Inizia drag task
+          const origStartMins = timeToMinutes(task.event_start_time || "09:00");
+          const origEndMins = timeToMinutes(task.event_end_time || "10:00");
+          taskDragRef.current = {
+            task,
+            startY: e.clientY,
+            origDateStr: task._displayDate || task.event_date,
+            origStartMins,
+            origEndMins,
+            duration: origEndMins - origStartMins,
+            newDateStr: task._displayDate || task.event_date,
+            newStartMins: origStartMins,
+            newEndMins: origEndMins,
+          };
+          didDragRef.current = false;
+          e.preventDefault();
         }}
-        title={`${task.title} — clicca per le azioni`}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => handleTaskClick(task, e)}
+        onClick={(e) => {
+          if (!taskDragRef.current) handleTaskClick(task, e);
+        }}
       >
+        {/* Handle resize top */}
+        <div
+          className="absolute top-0 left-0 right-0 h-2 cursor-n-resize z-20"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            resizeRef.current = {
+              task,
+              type: "top",
+              startY: e.clientY,
+              origStartMins: timeToMinutes(task.event_start_time || "09:00"),
+              origEndMins: timeToMinutes(task.event_end_time || "10:00"),
+            };
+            setResizing({ task, type: "top", newStartMins: timeToMinutes(task.event_start_time || "09:00"), newEndMins: timeToMinutes(task.event_end_time || "10:00") });
+            e.preventDefault();
+          }}
+        />
+
         <span className="font-semibold block truncate">{task.event_start_time && `${task.event_start_time} `}{task.title}</span>
         {task.project_name && <span className="opacity-80 truncate block text-[10px] font-medium">{task.project_name}</span>}
         {(() => {
@@ -297,7 +414,22 @@ export default function Calendar() {
         })()}
         {isCompleted && <span className="text-[9px] font-bold opacity-80 block">✓ Completato</span>}
 
-        <span className="absolute bottom-1 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-base leading-none">⏱</span>
+        {/* Handle resize bottom */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-2 cursor-s-resize z-20"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            resizeRef.current = {
+              task,
+              type: "bottom",
+              startY: e.clientY,
+              origStartMins: timeToMinutes(task.event_start_time || "09:00"),
+              origEndMins: timeToMinutes(task.event_end_time || "10:00"),
+            };
+            setResizing({ task, type: "bottom", newStartMins: timeToMinutes(task.event_start_time || "09:00"), newEndMins: timeToMinutes(task.event_end_time || "10:00") });
+            e.preventDefault();
+          }}
+        />
       </div>
     );
   }
@@ -305,11 +437,8 @@ export default function Calendar() {
   function renderAllDayTasks(dateStr) {
     const dayTasks = expanded.filter((t) => t._displayDate === dateStr && !t.event_start_time);
     return dayTasks.map((task, i) => {
-      const { isFaded, baseColor } = (() => {
-        const { isCompleted, isTimeMet } = getTaskVisualState(task);
-        const bc = getTaskColor(task, colors);
-        return { isFaded: isCompleted || isTimeMet, baseColor: bc };
-      })();
+      const { isCompleted, isTimeMet } = getTaskVisualState(task);
+      const isFaded = isCompleted || isTimeMet;
       return (
         <div
           key={i}
@@ -354,7 +483,6 @@ export default function Calendar() {
           <Button variant="outline" size="icon" onClick={() => setCurrentWeekStart(currentWeekStart.clone().add(1, "week"))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-
           <Button className="gap-2" onClick={() => openNewTask(today.format("YYYY-MM-DD"), "09:00", "10:00")}>
             <Plus className="h-4 w-4" />Nuovo
           </Button>
@@ -381,7 +509,7 @@ export default function Calendar() {
           <SelectTrigger className="w-40"><SelectValue placeholder="Tutti gli Utenti" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Tutti gli Utenti</SelectItem>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>)}
+            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.nome} {u.cognome}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterTaskType} onValueChange={setFilterTaskType}>
@@ -427,9 +555,9 @@ export default function Calendar() {
         ))}
         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <div className="h-3 w-3 rounded-full border-2 border-indigo-400 bg-indigo-100" />
-          Completato / Ore raggiunte
+          Completato
         </div>
-        <span className="text-xs text-muted-foreground italic">Trascina per creare • Clicca su un task per le azioni</span>
+        <span className="text-xs text-muted-foreground italic">Trascina per creare/spostare • Bordi per ridimensionare • Clicca per le azioni</span>
       </div>
 
       {/* Calendar Grid */}
@@ -477,9 +605,11 @@ export default function Calendar() {
               const isToday = dateStr === today.format("YYYY-MM-DD");
               const dayTasks = expanded.filter((t) => t._displayDate === dateStr && t.event_start_time);
               const isDraggingHere = dragging?.dateStr === dateStr;
+              const isDraggingTaskHere = draggingTask?.newDateStr === dateStr;
               return (
                 <div
                   key={dateStr}
+                  data-date={dateStr}
                   className={`relative border-l border-border select-none ${isToday ? "bg-accent/10" : ""}`}
                   style={{ height: SLOT_HEIGHT * HOURS.length }}
                   onMouseDown={(e) => handleMouseDown(e, dateStr)}
@@ -490,8 +620,9 @@ export default function Calendar() {
                   {HOURS.map((h) => (
                     <div key={`${h}h`} className="absolute left-0 right-0 border-b border-border/10 border-dashed" style={{ top: h * SLOT_HEIGHT + SLOT_HEIGHT / 2 }} />
                   ))}
-                  {/* Highlight work hours */}
                   <div className="absolute left-0 right-0 pointer-events-none" style={{ top: WORK_HOUR_START * SLOT_HEIGHT, height: (19 - WORK_HOUR_START) * SLOT_HEIGHT, backgroundColor: "rgba(0,0,0,0.02)" }} />
+
+                  {/* Preview crea task */}
                   {isDraggingHere && (
                     <div
                       className="absolute left-0.5 right-0.5 rounded bg-primary/30 border border-primary z-20 pointer-events-none"
@@ -505,6 +636,23 @@ export default function Calendar() {
                       </span>
                     </div>
                   )}
+
+                  {/* Preview drag task */}
+                  {isDraggingTaskHere && draggingTask && (
+                    <div
+                      className="absolute left-0.5 right-0.5 rounded z-20 pointer-events-none opacity-60 border-2 border-dashed border-primary"
+                      style={{
+                        top: (draggingTask.newStartMins / 60) * SLOT_HEIGHT,
+                        height: Math.max(24, ((draggingTask.newEndMins - draggingTask.newStartMins) / 60) * SLOT_HEIGHT),
+                        backgroundColor: getTaskColor(draggingTask.task, colors),
+                      }}
+                    >
+                      <span className="text-xs text-white font-semibold px-1">
+                        {minutesToTime(draggingTask.newStartMins)} – {minutesToTime(draggingTask.newEndMins)}
+                      </span>
+                    </div>
+                  )}
+
                   {dayTasks.map((task, i) => renderTaskPill(task, i))}
                 </div>
               );
@@ -513,9 +661,9 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* === DIALOGS === */}
+      {/* DIALOGS */}
 
-      {/* 1. Cosa vuoi fare? */}
+      {/* 1. Azioni task */}
       <Dialog open={!!selectedTask && !taskAction} onOpenChange={(o) => !o && closeTaskMenu()}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -534,7 +682,6 @@ export default function Calendar() {
                 <Button className="w-full gap-3 h-12 text-base" variant="outline" onClick={() => setTaskAction("edit")}>
                   <Pencil className="h-5 w-5" /> Modifica Task
                 </Button>
-  
                 <Button className="w-full gap-3 h-12 text-base" variant="destructive" onClick={handleDeleteTask} disabled={saving}>
                   <Trash2 className="h-5 w-5" /> {saving ? "Eliminazione..." : "Elimina Task"}
                 </Button>
@@ -549,14 +696,19 @@ export default function Calendar() {
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Modifica Task</DialogTitle></DialogHeader>
           {selectedTask && (
-            <TaskForm initial={selectedTask} projects={projects} onSubmit={handleUpdateTask} onCancel={closeTaskMenu} loading={saving} />
+            <TaskForm
+              initial={selectedTask}
+              projects={projects}
+              parentTasks={tasks.filter((t) => !t.parent_task_id)}
+              onSubmit={handleUpdateTask}
+              onCancel={closeTaskMenu}
+              loading={saving}
+            />
           )}
         </DialogContent>
       </Dialog>
 
-
-
-      {/* 4. Crea nuovo task */}
+      {/* 3. Crea nuovo task */}
       <Dialog open={showNewForm} onOpenChange={setShowNewForm}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -565,14 +717,13 @@ export default function Calendar() {
           <TaskForm
             initial={newTaskInitial}
             projects={projects}
+            parentTasks={tasks.filter((t) => !t.parent_task_id)}
             onSubmit={handleCreateNewTask}
             onCancel={() => setShowNewForm(false)}
             loading={saving}
           />
         </DialogContent>
       </Dialog>
-
-
     </div>
   );
 }

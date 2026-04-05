@@ -32,6 +32,7 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
   const [projects, setProjects] = useState(initialProjects);
   const [taskTypes, setTaskTypes] = useState([]);
   const [users, setUsers] = useState([]);
+  const [subTasks, setSubTasks] = useState([]);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectClient, setNewProjectClient] = useState("");
@@ -64,11 +65,9 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     initial.participants && initial.participants.length > 0 ? initial.participants : []
   );
 
-  // Calcola delta ore da ora inizio/fine
   const deltaHours = calcDeltaHours(form.event_start_time, form.event_end_time);
   const hoursFromDelta = deltaHours !== null;
 
-  // Aggiorna estimated_hours automaticamente quando cambia il delta
   useEffect(() => {
     if (hoursFromDelta) {
       setForm((f) => ({ ...f, estimated_hours: deltaHours.toFixed(2) }));
@@ -86,6 +85,17 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
       setProjects(p || []);
     });
   }, []);
+
+  // Carica subtask se stiamo modificando un task esistente
+  useEffect(() => {
+    if (initial.id) {
+      supabase.from("tasks").select("*").eq("parent_task_id", initial.id).then(({ data }) => {
+        setSubTasks(data || []);
+      });
+    }
+  }, [initial.id]);
+
+  const subHours = subTasks.reduce((s, t) => s + (t.estimated_hours || 0), 0);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -115,6 +125,8 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
 
   const isAttivita = form.tipo_task === "attivita";
   const isMultiplo = form.modalita === "multiplo";
+  const isExistingTask = !!initial.id;
+  const isSubTask = form.parent_task_id !== "none";
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -123,7 +135,6 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     const assigneeUser = users.find((u) => u.id === form.assignee_id);
     const parentTask = parentTasks.find((t) => t.id === form.parent_task_id);
 
-    // Ore stimate: usa il delta se disponibile, altrimenti il valore manuale
     const finalHours = hoursFromDelta
       ? deltaHours
       : (form.estimated_hours ? Number(form.estimated_hours) : null);
@@ -355,6 +366,29 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
                 readOnly={hoursFromDelta}
                 placeholder="Es. 4"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Riepilogo subtask — visibile solo su task esistenti con subtask */}
+        {isExistingTask && !isSubTask && subTasks.length > 0 && (
+          <div className="border border-primary/20 rounded-lg p-3 bg-primary/5">
+            <p className="text-xs font-semibold text-primary mb-2">
+              📋 Riepilogo Subtask ({subTasks.length})
+            </p>
+            <div className="space-y-1">
+              {subTasks.map((st) => (
+                <div key={st.id} className="flex items-center justify-between text-xs">
+                  <span className="text-foreground truncate flex-1">{st.title}</span>
+                  <span className="text-muted-foreground ml-2 shrink-0">
+                    {st.estimated_hours ? `${st.estimated_hours}h` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 pt-2 border-t border-primary/20 flex justify-between text-xs font-semibold">
+              <span className="text-foreground">Totale ore subtask</span>
+              <span className="text-primary">{subHours}h</span>
             </div>
           </div>
         )}

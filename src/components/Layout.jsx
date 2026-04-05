@@ -2,10 +2,11 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import {
   FolderKanban, Menu, X, ShieldCheck,
   Users2, BarChart2, BookOpen,
-  FileText, TrendingUp, Globe, ShoppingCart
+  FileText, TrendingUp, Globe, ShoppingCart,
+  LogOut, User, ChevronUp
 } from "lucide-react";
 import { applyAppColors } from "@/pages/admin/AppConfig";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/AuthContext";
@@ -13,8 +14,10 @@ import { useAuth } from "@/lib/AuthContext";
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
   const { t, lang, setLang } = useLanguage();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isAdmin, logout } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -27,6 +30,17 @@ export default function Layout() {
         try { applyAppColors(JSON.parse(colSetting.value)); } catch {}
       }
     });
+  }, []);
+
+  // Chiude il menu se si clicca fuori
+  useEffect(() => {
+    function handleClick(e) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   const navItems = [
@@ -91,6 +105,50 @@ export default function Layout() {
     );
   }
 
+  function ProfileMenu() {
+    return (
+      <div className="relative border-t border-border/40" ref={profileMenuRef}>
+        {/* Menu a comparsa */}
+        {profileMenuOpen && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
+            <Link
+              to="/profile"
+              onClick={() => setProfileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-muted/60 transition-colors"
+            >
+              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+              Il mio profilo
+            </Link>
+            <button
+              onClick={() => { setProfileMenuOpen(false); logout(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              Esci
+            </button>
+          </div>
+        )}
+
+        {/* Bottone profilo */}
+        {profile && (
+          <button
+            onClick={() => setProfileMenuOpen((v) => !v)}
+            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+          >
+            <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
+              {(profile.nome?.[0] || profile.cognome?.[0] || "?").toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-sm font-medium truncate">{profile.nome} {profile.cognome}</p>
+              <p className="text-xs text-muted-foreground capitalize">{profile.role || "user"}</p>
+            </div>
+            <ChevronUp className={`h-4 w-4 text-muted-foreground transition-transform ${profileMenuOpen ? "" : "rotate-180"}`} />
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex">
       <aside className="hidden lg:flex flex-col w-60 bg-card/90 backdrop-blur-xl border-r border-border/50 fixed inset-y-0 left-0 z-30 shadow-sm">
@@ -101,17 +159,7 @@ export default function Layout() {
           <NavLinks />
         </div>
         <LanguageToggle />
-        {profile && (
-          <Link to="/profile" className="flex items-center gap-3 px-4 py-3.5 border-t border-border/40 hover:bg-muted/50 transition-colors">
-            <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary text-sm font-semibold shrink-0">
-              {(profile.nome?.[0] || profile.cognome?.[0] || "?").toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{profile.nome} {profile.cognome}</p>
-              <p className="text-xs text-muted-foreground capitalize">{profile.role || "user"}</p>
-            </div>
-          </Link>
-        )}
+        <ProfileMenu />
       </aside>
 
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/40 z-40 flex items-center px-4 shadow-sm">
@@ -137,6 +185,7 @@ export default function Layout() {
               <NavLinks onClose={() => setMobileOpen(false)} />
             </div>
             <LanguageToggle />
+            <ProfileMenu />
           </aside>
         </div>
       )}

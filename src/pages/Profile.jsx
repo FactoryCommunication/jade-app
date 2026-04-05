@@ -8,42 +8,42 @@ import { User, Camera, Phone, Lock, Puzzle, CheckCircle2, Loader2, Mail } from "
 
 export default function Profile() {
   const [user, setUser] = useState(null);
-  const [userEntity, setUserEntity] = useState(null);
-  const [form, setForm] = useState({ first_name: "", last_name: "", phone: "", avatar_url: "", nome: "", cognome: "" });
+  const [profile, setProfile] = useState(null);
+  const [form, setForm] = useState({ nome: "", cognome: "", phone: "", avatar_url: "" });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordSent, setPasswordSent] = useState(false);
   const fileRef = useRef();
 
   useEffect(() => {
-    supabase.auth.getUser().then(r => r.data?.user).then(async (u) => {
+    async function load() {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return;
       setUser(u);
-      // Load User entity record for nome/cognome
-      let entity = null;
-      if (u?.id) {
-        const list = await supabase.from("profiles").select("*").eq("id", u.id ).maybeSingle().then(r => r.data);
-        entity = list?.[0] || null;
-        setUserEntity(entity);
-      }
+      const { data: p } = await supabase.from("profiles").select("*").eq("id", u.id).maybeSingle();
+      setProfile(p);
       setForm({
-        first_name: u?.first_name || "",
-        last_name: u?.last_name || "",
-        phone: u?.phone || "",
-        avatar_url: u?.avatar_url || "",
-        nome: entity?.nome || u?.full_name?.split(" ")?.[0] || "",
-        cognome: entity?.cognome || u?.full_name?.split(" ")?.slice(1).join(" ") || "",
+        nome: p?.nome || "",
+        cognome: p?.cognome || "",
+        phone: p?.phone || "",
+        avatar_url: p?.avatar_url || "",
       });
-    });
+    }
+    load();
   }, []);
 
   async function handleSave(e) {
     e.preventDefault();
+    if (!profile?.id) return;
     setSaving(true);
-    await base44.auth.updateMe(form);
-    // Also update nome/cognome on User entity
-    if (userEntity?.id) {
-      await supabase.from("profiles").update({ nome: form.nome, cognome: form.cognome }).eq("id", userEntity.id).select().single().then(r => r.data);
-    }
+    await supabase.from("profiles").update({
+      nome: form.nome,
+      cognome: form.cognome,
+      phone: form.phone,
+      avatar_url: form.avatar_url,
+    }).eq("id", profile.id);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -51,33 +51,43 @@ export default function Profile() {
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user?.id) return;
     setUploadingPhoto(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setForm((f) => ({ ...f, avatar_url: file_url }));
+    const ext = file.name.split(".").pop();
+    const path = `profile-avatars/${user.id}.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      setForm((f) => ({ ...f, avatar_url: publicUrl }));
+    }
     setUploadingPhoto(false);
   }
 
-  const initials = user
-    ? ((form.first_name?.[0] || "") + (form.last_name?.[0] || "")).toUpperCase() ||
-      user.full_name?.[0]?.toUpperCase() ||
-      user.email?.[0]?.toUpperCase()
-    : "?";
+  async function handlePasswordReset() {
+    if (!user?.email) return;
+    setChangingPassword(true);
+    await supabase.auth.resetPasswordForEmail(user.email);
+    setChangingPassword(false);
+    setPasswordSent(true);
+    setTimeout(() => setPasswordSent(false), 5000);
+  }
+
+  const initials = ((form.nome?.[0] || "") + (form.cognome?.[0] || "")).toUpperCase() || user?.email?.[0]?.toUpperCase() || "?";
 
   const integrations = [
-    { name: "Google Calendar", icon: "📅", description: "Sincronizza eventi e scadenze", status: "coming_soon" },
-    { name: "Google Drive", icon: "📁", description: "Collega documenti e file", status: "coming_soon" },
-    { name: "Slack", icon: "💬", description: "Notifiche e aggiornamenti", status: "coming_soon" },
-    { name: "Notion", icon: "📝", description: "Collega le tue note", status: "coming_soon" },
-    { name: "GitHub", icon: "🐙", description: "Traccia commit e PR", status: "coming_soon" },
-    { name: "HubSpot", icon: "🔶", description: "Sincronizza contatti CRM", status: "coming_soon" },
+    { name: "Google Calendar", icon: "📅", description: "Sincronizza eventi e scadenze" },
+    { name: "Google Drive", icon: "📁", description: "Collega documenti e file" },
+    { name: "Slack", icon: "💬", description: "Notifiche e aggiornamenti" },
+    { name: "Notion", icon: "📝", description: "Collega le tue note" },
+    { name: "GitHub", icon: "🐙", description: "Traccia commit e PR" },
+    { name: "HubSpot", icon: "🔶", description: "Sincronizza contatti CRM" },
   ];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Il mio profilo</h1>
-        <p className="text-muted-foreground mt-1">Gestisci le tue informazioni personali e le integrazioni</p>
+        <p className="text-muted-foreground mt-1">Gestisci le tue informazioni personali</p>
       </div>
 
       {/* Dati personali */}
@@ -109,15 +119,15 @@ export default function Profile() {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </div>
               <div>
-                <p className="font-medium">{user?.full_name || user?.email}</p>
+                <p className="font-medium">{form.nome} {form.cognome}</p>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 capitalize">{user?.role || "user"}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 capitalize">{profile?.role || "user"}</p>
               </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Nome <span className="text-xs text-muted-foreground">(visualizzato nell'app)</span></Label>
+                <Label>Nome</Label>
                 <Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Mario" />
               </div>
               <div className="space-y-2">
@@ -152,17 +162,19 @@ export default function Profile() {
             <Lock className="h-4 w-4" /> Password
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Per cambiare la password puoi effettuare il logout e usare la funzione "Password dimenticata" nella schermata di accesso.
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Riceverai un'email con il link per reimpostare la password.
           </p>
           <Button
+            type="button"
             variant="outline"
-            onClick={() => supabase.auth.signOut()}
+            onClick={handlePasswordReset}
+            disabled={changingPassword || passwordSent}
             className="gap-2"
           >
-            <Lock className="h-4 w-4" />
-            Esci e reimposta password
+            {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : passwordSent ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Lock className="h-4 w-4" />}
+            {changingPassword ? "Invio in corso..." : passwordSent ? "Email inviata!" : "Reimposta password"}
           </Button>
         </CardContent>
       </Card>

@@ -21,7 +21,6 @@ export const AuthProvider = ({ children }) => {
       const { data: teams } = await supabase.from('teams').select('*');
       const allTeams = teams || [];
 
-      // Calcola ruolo effettivo
       if (p?.role === 'admin') {
         setEffectiveRole('admin');
       } else {
@@ -31,7 +30,6 @@ export const AuthProvider = ({ children }) => {
         setEffectiveRole(isResponsabile ? 'responsabile' : 'user');
       }
 
-      // Salva i team a cui appartiene l'utente (come membro o responsabile)
       const myTeams = allTeams.filter(
         (t) =>
           (Array.isArray(t.member_ids) && t.member_ids.includes(userId)) ||
@@ -91,6 +89,7 @@ export const AuthProvider = ({ children }) => {
     setEffectiveRole(null);
     setUserTeams([]);
     setIsAuthenticated(false);
+    window.location.href = '/login';
   };
 
   const navigateToLogin = () => {
@@ -100,8 +99,6 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = effectiveRole === 'admin';
   const isResponsabile = effectiveRole === 'responsabile' || effectiveRole === 'admin';
 
-  // Restituisce true se l'utente è membro o responsabile del team indicato
-  // Gli admin hanno sempre accesso a tutto
   function isTeamMember(teamName) {
     if (isAdmin) return true;
     return userTeams.some(

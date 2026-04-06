@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Camera, Phone, Lock, Puzzle, CheckCircle2, Loader2, Mail } from "lucide-react";
+import { User, Camera, Phone, Lock, Puzzle, CheckCircle2, Loader2, Mail, Globe } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -16,6 +17,7 @@ export default function Profile() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordSent, setPasswordSent] = useState(false);
   const fileRef = useRef();
+  const { lang, setLang } = useLanguage();
 
   useEffect(() => {
     async function load() {
@@ -99,7 +101,6 @@ export default function Profile() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSave} className="space-y-5">
-            {/* Foto */}
             <div className="flex items-center gap-4">
               <div className="relative">
                 {form.avatar_url ? (
@@ -176,6 +177,33 @@ export default function Profile() {
             {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : passwordSent ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Lock className="h-4 w-4" />}
             {changingPassword ? "Invio in corso..." : passwordSent ? "Email inviata!" : "Reimposta password"}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Lingua */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Globe className="h-4 w-4" /> Lingua
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">Seleziona la lingua dell'interfaccia.</p>
+          <div className="flex gap-2">
+            {[{ value: "it", label: "🇮🇹 Italiano" }, { value: "en", label: "🇬🇧 English" }].map((l) => (
+              <button
+                key={l.value}
+                onClick={() => setLang(l.value)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                  lang === l.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background text-muted-foreground border-border hover:border-primary"
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

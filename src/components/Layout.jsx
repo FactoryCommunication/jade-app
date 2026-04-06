@@ -3,7 +3,7 @@ import {
   FolderKanban, Menu, X, ShieldCheck,
   Users2, BarChart2, BookOpen,
   FileText, TrendingUp, Globe, ShoppingCart,
-  LogOut, User, ChevronUp, Bell, AlertTriangle, Clock
+  LogOut, User, ChevronUp, Bell, AlertTriangle
 } from "lucide-react";
 import { applyAppColors } from "@/pages/admin/AppConfig";
 import { useState, useEffect, useRef } from "react";
@@ -15,7 +15,7 @@ import "moment/locale/it";
 
 moment.locale("it");
 
-const DAYS_WARNING = 7; // giorni di preavviso
+const DAYS_WARNING = 7;
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -26,7 +26,7 @@ export default function Layout() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileMenuRef = useRef(null);
   const notifRef = useRef(null);
-  const { t, lang, setLang } = useLanguage();
+  const { t } = useLanguage();
   const { profile, isAdmin, isTeamMember, logout, user } = useAuth();
   const location = useLocation();
 
@@ -42,11 +42,9 @@ export default function Layout() {
     });
   }, []);
 
-  // Carica scadenze imminenti per l'utente corrente
   useEffect(() => {
     if (!user?.id) return;
     async function loadScadenze() {
-      const today = moment().format("YYYY-MM-DD");
       const limit = moment().add(DAYS_WARNING, "days").format("YYYY-MM-DD");
       const { data } = await supabase
         .from("tasks")
@@ -55,13 +53,11 @@ export default function Layout() {
         .not("due_date", "is", null)
         .lte("due_date", limit)
         .order("due_date", { ascending: true });
-      // Mostra tutti i task in scadenza (non solo i propri) — puoi filtrare per assignee_id se preferisci
       setScadenze(data || []);
     }
     loadScadenze();
   }, [user?.id, location.pathname]);
 
-  // Reset banner quando cambiano le scadenze
   useEffect(() => {
     setBannerDismissed(false);
   }, [location.pathname]);
@@ -130,32 +126,6 @@ export default function Layout() {
     );
   }
 
-  function LanguageToggle() {
-    return (
-      <div className="px-3 py-3 border-t border-border/40">
-        <div className="flex items-center gap-2 mb-2">
-          <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("common.language")}</span>
-        </div>
-        <div className="flex gap-1">
-          {["it", "en"].map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                lang === l
-                  ? "bg-primary/15 text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              {l === "it" ? "IT" : "EN"}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   function ProfileMenu() {
     return (
       <div className="relative border-t border-border/40" ref={profileMenuRef}>
@@ -211,8 +181,6 @@ export default function Layout() {
             </span>
           )}
         </button>
-
-        {/* Pannello notifiche */}
         {notifOpen && (
           <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
             <div className="p-3 border-b border-border flex items-center justify-between">
@@ -298,11 +266,9 @@ export default function Layout() {
         <div className="flex-1 overflow-y-auto flex flex-col">
           <NavLinks />
         </div>
-        <LanguageToggle />
         <ProfileMenu />
       </aside>
 
-      {/* Header mobile con campanella */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/40 z-40 flex items-center px-4 shadow-sm">
         <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted/60 transition-colors">
           <Menu className="h-5 w-5" />
@@ -326,14 +292,12 @@ export default function Layout() {
             <div className="flex-1 overflow-y-auto flex flex-col">
               <NavLinks onClose={() => setMobileOpen(false)} />
             </div>
-            <LanguageToggle />
             <ProfileMenu />
           </aside>
         </div>
       )}
 
       <main className="flex-1 lg:ml-60 pt-14 lg:pt-0 bg-background">
-        {/* Banner scadenze — solo per scaduti e oggi */}
         {showBanner && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -354,7 +318,6 @@ export default function Layout() {
           </div>
         )}
 
-        {/* Campanella desktop — in alto a destra del contenuto */}
         <div className="hidden lg:flex justify-end px-8 pt-4 pb-0">
           <NotifButton />
         </div>

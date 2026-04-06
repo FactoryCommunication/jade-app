@@ -3,21 +3,31 @@ import {
   FolderKanban, Menu, X, ShieldCheck,
   Users2, BarChart2, BookOpen,
   FileText, TrendingUp, Globe, ShoppingCart,
-  LogOut, User, ChevronUp
+  LogOut, User, ChevronUp, Bell, AlertTriangle, Clock
 } from "lucide-react";
 import { applyAppColors } from "@/pages/admin/AppConfig";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/api/supabaseClient";
 import { useLanguage } from "@/lib/i18n";
 import { useAuth } from "@/lib/AuthContext";
+import moment from "moment";
+import "moment/locale/it";
+
+moment.locale("it");
+
+const DAYS_WARNING = 7; // giorni di preavviso
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState("");
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [scadenze, setScadenze] = useState([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const profileMenuRef = useRef(null);
+  const notifRef = useRef(null);
   const { t, lang, setLang } = useLanguage();
-  const { profile, isAdmin, isTeamMember, logout } = useAuth();
+  const { profile, isAdmin, isTeamMember, logout, user } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -32,15 +42,57 @@ export default function Layout() {
     });
   }, []);
 
+  // Carica scadenze imminenti per l'utente corrente
+  useEffect(() => {
+    if (!user?.id) return;
+    async function loadScadenze() {
+      const today = moment().format("YYYY-MM-DD");
+      const limit = moment().add(DAYS_WARNING, "days").format("YYYY-MM-DD");
+      const { data } = await supabase
+        .from("tasks")
+        .select("id, title, due_date, status, project_name, assignee_id")
+        .neq("status", "completato")
+        .not("due_date", "is", null)
+        .lte("due_date", limit)
+        .order("due_date", { ascending: true });
+      // Mostra tutti i task in scadenza (non solo i propri) — puoi filtrare per assignee_id se preferisci
+      setScadenze(data || []);
+    }
+    loadScadenze();
+  }, [user?.id, location.pathname]);
+
+  // Reset banner quando cambiano le scadenze
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [location.pathname]);
+
   useEffect(() => {
     function handleClick(e) {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
         setProfileMenuOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const scadenzeOggi = scadenze.filter((t) => t.due_date === moment().format("YYYY-MM-DD"));
+  const scadenzeScadute = scadenze.filter((t) => t.due_date < moment().format("YYYY-MM-DD"));
+  const scadenzeImminenti = scadenze.filter((t) => t.due_date > moment().format("YYYY-MM-DD"));
+  const totaleBadge = scadenze.length;
+  const showBanner = !bannerDismissed && (scadenzeOggi.length > 0 || scadenzeScadute.length > 0);
+
+  function getLabelScadenza(due_date) {
+    const today = moment().format("YYYY-MM-DD");
+    const diff = moment(due_date).diff(moment(today), "days");
+    if (diff < 0) return { label: `Scaduto ${Math.abs(diff)}g fa`, color: "text-destructive" };
+    if (diff === 0) return { label: "Scade oggi", color: "text-amber-600" };
+    if (diff === 1) return { label: "Scade domani", color: "text-amber-500" };
+    return { label: `Scade tra ${diff}g`, color: "text-muted-foreground" };
+  }
 
   const navItems = [
     { path: "/crm", label: t("nav.crm"), icon: Users2, show: isTeamMember("CRM") },
@@ -145,6 +197,98 @@ export default function Layout() {
     );
   }
 
+  function NotifButton() {
+    return (
+      <div className="relative" ref={notifRef}>
+        <button
+          onClick={() => setNotifOpen((v) => !v)}
+          className="relative p-2 rounded-xl hover:bg-muted/60 transition-colors"
+        >
+          <Bell className="h-5 w-5 text-muted-foreground" />
+          {totaleBadge > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-white text-[10px] font-bold flex items-center justify-center">
+              {totaleBadge > 9 ? "9+" : totaleBadge}
+            </span>
+          )}
+        </button>
+
+        {/* Pannello notifiche */}
+        {notifOpen && (
+          <div className="absolute right-0 top-full mt-2 w-80 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">Scadenze</p>
+              <span className="text-xs text-muted-foreground">{totaleBadge} task</span>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {scadenze.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  Nessuna scadenza imminente 🎉
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {scadenzeScadute.length > 0 && (
+                    <div className="px-3 py-1.5 bg-destructive/5">
+                      <p className="text-xs font-semibold text-destructive uppercase tracking-wider">Scaduti</p>
+                    </div>
+                  )}
+                  {scadenzeScadute.map((task) => {
+                    const { label, color } = getLabelScadenza(task.due_date);
+                    return (
+                      <div key={task.id} className="px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        {task.project_name && <p className="text-xs text-muted-foreground truncate">{task.project_name}</p>}
+                        <p className={`text-xs font-medium mt-0.5 ${color}`}>{label}</p>
+                      </div>
+                    );
+                  })}
+                  {scadenzeOggi.length > 0 && (
+                    <div className="px-3 py-1.5 bg-amber-500/5">
+                      <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Oggi</p>
+                    </div>
+                  )}
+                  {scadenzeOggi.map((task) => {
+                    const { label, color } = getLabelScadenza(task.due_date);
+                    return (
+                      <div key={task.id} className="px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        {task.project_name && <p className="text-xs text-muted-foreground truncate">{task.project_name}</p>}
+                        <p className={`text-xs font-medium mt-0.5 ${color}`}>{label}</p>
+                      </div>
+                    );
+                  })}
+                  {scadenzeImminenti.length > 0 && (
+                    <div className="px-3 py-1.5 bg-muted/30">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Prossimi {DAYS_WARNING} giorni</p>
+                    </div>
+                  )}
+                  {scadenzeImminenti.map((task) => {
+                    const { label, color } = getLabelScadenza(task.due_date);
+                    return (
+                      <div key={task.id} className="px-3 py-2.5 hover:bg-muted/40 transition-colors">
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        {task.project_name && <p className="text-xs text-muted-foreground truncate">{task.project_name}</p>}
+                        <p className={`text-xs font-medium mt-0.5 ${color}`}>{label}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="p-2 border-t border-border">
+              <Link
+                to="/"
+                onClick={() => setNotifOpen(false)}
+                className="block text-center text-xs text-primary hover:underline py-1"
+              >
+                Vai a Gestione Progetti →
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex">
       <aside className="hidden lg:flex flex-col w-60 bg-card/90 backdrop-blur-xl border-r border-border/50 fixed inset-y-0 left-0 z-30 shadow-sm">
@@ -158,13 +302,15 @@ export default function Layout() {
         <ProfileMenu />
       </aside>
 
+      {/* Header mobile con campanella */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card/90 backdrop-blur-xl border-b border-border/40 z-40 flex items-center px-4 shadow-sm">
         <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted/60 transition-colors">
           <Menu className="h-5 w-5" />
         </button>
-        <div className="ml-3">
+        <div className="ml-3 flex-1">
           <img src={logoUrl || "/jabe.png"} alt="jabe" className="h-8 w-auto object-contain" />
         </div>
+        <NotifButton />
       </div>
 
       {mobileOpen && (
@@ -187,6 +333,32 @@ export default function Layout() {
       )}
 
       <main className="flex-1 lg:ml-60 pt-14 lg:pt-0 bg-background">
+        {/* Banner scadenze — solo per scaduti e oggi */}
+        {showBanner && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 flex-1">
+              {scadenzeScadute.length > 0 && (
+                <span className="font-semibold text-destructive">{scadenzeScadute.length} task scaduti. </span>
+              )}
+              {scadenzeOggi.length > 0 && (
+                <span className="font-semibold text-amber-700">{scadenzeOggi.length} task in scadenza oggi. </span>
+              )}
+              <button onClick={() => setNotifOpen(true)} className="underline text-amber-700 hover:text-amber-900">
+                Vedi dettagli
+              </button>
+            </p>
+            <button onClick={() => setBannerDismissed(true)} className="text-amber-600 hover:text-amber-900 shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Campanella desktop — in alto a destra del contenuto */}
+        <div className="hidden lg:flex justify-end px-8 pt-4 pb-0">
+          <NotifButton />
+        </div>
+
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
         </div>

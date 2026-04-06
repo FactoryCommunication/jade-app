@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import StatusBadge from "../components/StatusBadge";
 import ProjectForm from "../components/ProjectForm";
 import TaskForm from "../components/TaskForm";
+import ProjectOverview from "../components/ProjectOverview";
 import { useAuth } from "@/lib/AuthContext";
 import moment from "moment";
 
@@ -95,6 +96,7 @@ export default function ProjectDetail() {
   const [projects, setProjects] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("panoramica");
   const [showEdit, setShowEdit] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -284,6 +286,7 @@ export default function ProjectDetail() {
         <ArrowLeft className="h-4 w-4" /> Progetti
       </Button>
 
+      {/* Project Header */}
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -323,6 +326,7 @@ export default function ProjectDetail() {
           )}
         </div>
 
+        {/* Progress + Budget */}
         <div className="grid sm:grid-cols-2 gap-6 mt-6 pt-6 border-t border-border">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -344,6 +348,7 @@ export default function ProjectDetail() {
           </div>
         </div>
 
+        {/* Admin-only: Budget + Costi */}
         {isAdmin && (
           <div className="grid sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
             <div className="border border-border rounded-lg p-4">
@@ -386,49 +391,78 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      <div className="bg-card rounded-xl border border-border">
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Task ({tasks.length})</h2>
-          {canEditProject && (
-            <Button size="sm" onClick={() => setShowTaskForm(true)} className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> Aggiungi Task
-            </Button>
-          )}
-        </div>
-        {tasks.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Nessun task ancora</div>
-        ) : (
-          <div className="divide-y divide-border">
-            {rootTasks.map((task) => (
-              <>
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  subTasks={subTasksMap[task.id] || []}
-                  onStatusChange={handleUpdateTaskStatus}
-                  onEdit={setEditingTask}
-                  onDelete={setTaskToDelete}
-                  onComment={setCommentTask}
-                  canEditTask={canEditTask(task)}
-                />
-                {(subTasksMap[task.id] || []).map((sub) => (
+      {/* Tab Panoramica / Task */}
+      <div className="flex gap-1 border-b border-border">
+        {["panoramica", "task"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              activeTab === tab
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab === "panoramica" ? "📄 Panoramica" : `✅ Task (${tasks.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Contenuto tab */}
+      {activeTab === "panoramica" && (
+        <ProjectOverview
+          project={project}
+          onUpdate={loadData}
+          canEdit={canEditProject}
+        />
+      )}
+
+      {activeTab === "task" && (
+        <div className="bg-card rounded-xl border border-border">
+          <div className="p-5 border-b border-border flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">Task ({tasks.length})</h2>
+            {canEditProject && (
+              <Button size="sm" onClick={() => setShowTaskForm(true)} className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> Aggiungi Task
+              </Button>
+            )}
+          </div>
+          {tasks.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Nessun task ancora</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {rootTasks.map((task) => (
+                <>
                   <TaskRow
-                    key={sub.id}
-                    task={sub}
-                    isSubTask
+                    key={task.id}
+                    task={task}
+                    subTasks={subTasksMap[task.id] || []}
                     onStatusChange={handleUpdateTaskStatus}
                     onEdit={setEditingTask}
                     onDelete={setTaskToDelete}
                     onComment={setCommentTask}
-                    canEditTask={canEditTask(sub)}
+                    canEditTask={canEditTask(task)}
                   />
-                ))}
-              </>
-            ))}
-          </div>
-        )}
-      </div>
+                  {(subTasksMap[task.id] || []).map((sub) => (
+                    <TaskRow
+                      key={sub.id}
+                      task={sub}
+                      isSubTask
+                      onStatusChange={handleUpdateTaskStatus}
+                      onEdit={setEditingTask}
+                      onDelete={setTaskToDelete}
+                      onComment={setCommentTask}
+                      canEditTask={canEditTask(sub)}
+                    />
+                  ))}
+                </>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Pannello commenti task */}
       {commentTask && (
         <div className="fixed inset-0 z-40" onClick={() => setCommentTask(null)}>
           <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -446,6 +480,7 @@ export default function ProjectDetail() {
         </div>
       )}
 
+      {/* Conferma elimina task */}
       <AlertDialog open={!!taskToDelete} onOpenChange={(o) => !o && setTaskToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -461,6 +496,7 @@ export default function ProjectDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Conferma elimina progetto */}
       <AlertDialog open={showDeleteProject} onOpenChange={setShowDeleteProject}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -480,6 +516,7 @@ export default function ProjectDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Dialogs */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Modifica Progetto</DialogTitle></DialogHeader>

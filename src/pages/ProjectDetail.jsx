@@ -16,6 +16,7 @@ import moment from "moment";
 
 function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, onComment, canEditTask, subTasks = [] }) {
   const subHours = subTasks.reduce((s, t) => s + (t.estimated_hours || 0), 0);
+  const subCompletedHours = subTasks.filter((t) => t.status === "completato").reduce((s, t) => s + (t.estimated_hours || 0), 0);
   const ownHours = task.estimated_hours || task.estimated_hours_total || 0;
 
   return (
@@ -33,11 +34,16 @@ function TaskRow({ task, isSubTask = false, onStatusChange, onEdit, onDelete, on
             <span className="text-xs text-muted-foreground">👤 {task.assignee_name || task.assignee}</span>
           ) : null}
           {ownHours > 0 && (
-            <span className="text-xs text-muted-foreground">⏱ {ownHours}h stimate</span>
+            <span className="text-xs text-muted-foreground">
+              ⏱ {ownHours}h stimate
+              {task.status === "completato" && (
+                <span className="text-emerald-600 ml-1">· completato</span>
+              )}
+            </span>
           )}
           {!isSubTask && subTasks.length > 0 && (
             <span className="text-xs text-primary font-medium">
-              📋 {subTasks.length} subtask · {subHours}h totali
+              📋 {subTasks.length} subtask · {subHours}h stimate · <span className="text-emerald-600">{subCompletedHours}h completate</span>
             </span>
           )}
           {task.due_date && <span className="text-xs text-muted-foreground">• {moment(task.due_date).format("DD MMM")}</span>}
@@ -278,7 +284,6 @@ export default function ProjectDetail() {
         <ArrowLeft className="h-4 w-4" /> Progetti
       </Button>
 
-      {/* Project Header */}
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
@@ -318,7 +323,6 @@ export default function ProjectDetail() {
           )}
         </div>
 
-        {/* Progress + Budget */}
         <div className="grid sm:grid-cols-2 gap-6 mt-6 pt-6 border-t border-border">
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -340,7 +344,6 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* Admin-only: Budget + Costi */}
         {isAdmin && (
           <div className="grid sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
             <div className="border border-border rounded-lg p-4">
@@ -383,7 +386,6 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      {/* Tasks Section */}
       <div className="bg-card rounded-xl border border-border">
         <div className="p-5 border-b border-border flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Task ({tasks.length})</h2>
@@ -427,7 +429,6 @@ export default function ProjectDetail() {
         )}
       </div>
 
-      {/* Pannello commenti task */}
       {commentTask && (
         <div className="fixed inset-0 z-40" onClick={() => setCommentTask(null)}>
           <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-border shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -445,7 +446,6 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {/* Conferma elimina task */}
       <AlertDialog open={!!taskToDelete} onOpenChange={(o) => !o && setTaskToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -461,7 +461,6 @@ export default function ProjectDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Conferma elimina progetto con codice */}
       <AlertDialog open={showDeleteProject} onOpenChange={setShowDeleteProject}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -481,7 +480,6 @@ export default function ProjectDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialogs */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Modifica Progetto</DialogTitle></DialogHeader>

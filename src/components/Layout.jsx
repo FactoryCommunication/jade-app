@@ -17,7 +17,7 @@ export default function Layout() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const { t, lang, setLang } = useLanguage();
-  const { profile, isAdmin, logout } = useAuth();
+  const { profile, isAdmin, isTeamMember, logout } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -32,7 +32,6 @@ export default function Layout() {
     });
   }, []);
 
-  // Chiude il menu se si clicca fuori
   useEffect(() => {
     function handleClick(e) {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
@@ -44,15 +43,15 @@ export default function Layout() {
   }, []);
 
   const navItems = [
-    { path: "/crm", label: t("nav.crm"), icon: Users2 },
-    { path: "/", label: t("nav.pm"), icon: FolderKanban },
-    { path: "/seo", label: t("nav.seo"), icon: BarChart2 },
-    { path: "/vendite", label: t("nav.vendite"), icon: ShoppingCart },
-    { path: "/amministrazione", label: t("nav.amministrazione"), icon: FileText },
-    { path: "/finanza", label: t("nav.finanza"), icon: TrendingUp },
-    { path: "/wiki", label: t("nav.wiki"), icon: BookOpen },
-    ...(isAdmin ? [{ path: "/admin", label: t("nav.admin"), icon: ShieldCheck }] : []),
-  ];
+    { path: "/crm", label: t("nav.crm"), icon: Users2, show: isTeamMember("CRM") },
+    { path: "/", label: t("nav.pm"), icon: FolderKanban, show: isTeamMember("Gestione Progetti") },
+    { path: "/seo", label: t("nav.seo"), icon: BarChart2, show: isTeamMember("Gestione SEO") },
+    { path: "/vendite", label: t("nav.vendite"), icon: ShoppingCart, show: isTeamMember("Vendite") },
+    { path: "/amministrazione", label: t("nav.amministrazione"), icon: FileText, show: isTeamMember("Amministrazione") },
+    { path: "/finanza", label: t("nav.finanza"), icon: TrendingUp, show: isTeamMember("Finanza") },
+    { path: "/wiki", label: t("nav.wiki"), icon: BookOpen, show: isTeamMember("Wiki") },
+    { path: "/admin", label: t("nav.admin"), icon: ShieldCheck, show: isAdmin },
+  ].filter((item) => item.show);
 
   const isActive = (path) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -108,7 +107,6 @@ export default function Layout() {
   function ProfileMenu() {
     return (
       <div className="relative border-t border-border/40" ref={profileMenuRef}>
-        {/* Menu a comparsa */}
         {profileMenuOpen && (
           <div className="absolute bottom-full left-3 right-3 mb-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50">
             <Link
@@ -128,8 +126,6 @@ export default function Layout() {
             </button>
           </div>
         )}
-
-        {/* Bottone profilo */}
         {profile && (
           <button
             onClick={() => setProfileMenuOpen((v) => !v)}

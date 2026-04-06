@@ -86,7 +86,6 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
     });
   }, []);
 
-  // Carica subtask se stiamo modificando un task esistente
   useEffect(() => {
     if (initial.id) {
       supabase.from("tasks").select("*").eq("parent_task_id", initial.id).then(({ data }) => {
@@ -96,6 +95,7 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
   }, [initial.id]);
 
   const subHours = subTasks.reduce((s, t) => s + (t.estimated_hours || 0), 0);
+  const subCompletedHours = subTasks.filter((t) => t.status === "completato").reduce((s, t) => s + (t.estimated_hours || 0), 0);
 
   async function handleCreateProject() {
     if (!newProjectName.trim()) return;
@@ -370,7 +370,7 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
           </div>
         )}
 
-        {/* Riepilogo subtask — visibile solo su task esistenti con subtask */}
+        {/* Riepilogo subtask */}
         {isExistingTask && !isSubTask && subTasks.length > 0 && (
           <div className="border border-primary/20 rounded-lg p-3 bg-primary/5">
             <p className="text-xs font-semibold text-primary mb-2">
@@ -380,15 +380,22 @@ export default function TaskForm({ initial = {}, projects: initialProjects = [],
               {subTasks.map((st) => (
                 <div key={st.id} className="flex items-center justify-between text-xs">
                   <span className="text-foreground truncate flex-1">{st.title}</span>
-                  <span className="text-muted-foreground ml-2 shrink-0">
+                  <span className={`ml-2 shrink-0 ${st.status === "completato" ? "text-emerald-600 font-medium" : "text-muted-foreground"}`}>
                     {st.estimated_hours ? `${st.estimated_hours}h` : "—"}
+                    {st.status === "completato" && " ✓"}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mt-2 pt-2 border-t border-primary/20 flex justify-between text-xs font-semibold">
-              <span className="text-foreground">Totale ore subtask</span>
-              <span className="text-primary">{subHours}h</span>
+            <div className="mt-2 pt-2 border-t border-primary/20 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Ore stimate totali</span>
+                <span className="font-medium">{subHours}h</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-emerald-600">Ore completate</span>
+                <span className="text-emerald-600 font-semibold">{subCompletedHours}h</span>
+              </div>
             </div>
           </div>
         )}

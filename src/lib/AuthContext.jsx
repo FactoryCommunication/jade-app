@@ -72,34 +72,32 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Rileva quando la tab torna in foreground e verifica la sessione
+  // Ricarica la pagina se la tab era in background per più di 10 secondi
   useEffect(() => {
-    async function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        try {
-          const { data, error } = await supabase.auth.getSession();
-          if (error || !data.session) {
-            window.location.href = '/login';
-            return;
-          }
-          await supabase.auth.refreshSession();
-        } catch (err) {
-          console.error('Errore refresh sessione:', err);
-          window.location.href = '/login';
+    let lastHidden = null;
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        lastHidden = Date.now();
+      } else if (document.visibilityState === 'visible') {
+        const elapsed = lastHidden ? Date.now() - lastHidden : 0;
+        if (elapsed > 10000) {
+          window.location.reload();
         }
       }
     }
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  // Keepalive: impedisce al browser di congelare la tab
+  // Keepalive ogni 20 secondi
   useEffect(() => {
     const keepAlive = setInterval(async () => {
       try {
         await supabase.auth.getSession();
       } catch {}
-    }, 20000); // ogni 20 secondi
+    }, 20000);
     return () => clearInterval(keepAlive);
   }, []);
 

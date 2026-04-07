@@ -82,7 +82,6 @@ export const AuthProvider = ({ children }) => {
             window.location.href = '/login';
             return;
           }
-          // Refresh esplicito del token se la tab era in background
           await supabase.auth.refreshSession();
         } catch (err) {
           console.error('Errore refresh sessione:', err);
@@ -92,6 +91,16 @@ export const AuthProvider = ({ children }) => {
     }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // Keepalive: impedisce al browser di congelare la tab
+  useEffect(() => {
+    const keepAlive = setInterval(async () => {
+      try {
+        await supabase.auth.getSession();
+      } catch {}
+    }, 20000); // ogni 20 secondi
+    return () => clearInterval(keepAlive);
   }, []);
 
   const login = async (email, password) => {

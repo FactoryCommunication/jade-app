@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
         hiddenAt = Date.now();
       } else if (document.visibilityState === 'visible') {
         const elapsed = hiddenAt ? Date.now() - hiddenAt : 0;
-        if (elapsed > 120000) { // 2 minuti
+        if (elapsed > 20000) { // 20 secondi
           window.location.reload();
         }
         hiddenAt = null;

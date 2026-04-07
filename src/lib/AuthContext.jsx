@@ -72,6 +72,28 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Rileva quando la tab torna in foreground e verifica la sessione
+  useEffect(() => {
+    async function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error || !data.session) {
+            window.location.href = '/login';
+            return;
+          }
+          // Refresh esplicito del token se la tab era in background
+          await supabase.auth.refreshSession();
+        } catch (err) {
+          console.error('Errore refresh sessione:', err);
+          window.location.href = '/login';
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const login = async (email, password) => {
     setAuthError(null);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

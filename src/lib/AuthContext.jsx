@@ -17,10 +17,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).single();
       setProfile(p);
-
       const { data: teams } = await supabase.from('teams').select('*');
       const allTeams = teams || [];
-
       if (p?.role === 'admin') {
         setEffectiveRole('admin');
       } else {
@@ -29,14 +27,12 @@ export const AuthProvider = ({ children }) => {
         );
         setEffectiveRole(isResponsabile ? 'responsabile' : 'user');
       }
-
       const myTeams = allTeams.filter(
         (t) =>
           (Array.isArray(t.member_ids) && t.member_ids.includes(userId)) ||
           (Array.isArray(t.responsabile_ids) && t.responsabile_ids.includes(userId))
       );
       setUserTeams(myTeams);
-
     } catch (error) {
       console.error('Errore caricamento profilo:', error);
     }
@@ -72,33 +68,22 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Ricarica la pagina se la tab era in background per più di 10 secondi
+  // Ricarica la pagina solo se la tab era in background per più di 2 minuti
   useEffect(() => {
-    let lastHidden = null;
-
+    let hiddenAt = null;
     function handleVisibilityChange() {
       if (document.visibilityState === 'hidden') {
-        lastHidden = Date.now();
+        hiddenAt = Date.now();
       } else if (document.visibilityState === 'visible') {
-        const elapsed = lastHidden ? Date.now() - lastHidden : 0;
-        if (elapsed > 10000) {
+        const elapsed = hiddenAt ? Date.now() - hiddenAt : 0;
+        if (elapsed > 120000) { // 2 minuti
           window.location.reload();
         }
+        hiddenAt = null;
       }
     }
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
-  // Keepalive ogni 20 secondi
-  useEffect(() => {
-    const keepAlive = setInterval(async () => {
-      try {
-        await supabase.auth.getSession();
-      } catch {}
-    }, 20000);
-    return () => clearInterval(keepAlive);
   }, []);
 
   const login = async (email, password) => {
